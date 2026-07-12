@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YKS 2028 Takip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.13.2/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.13.2/firebase-auth-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.13.2/firebase-firestore-compat.min.js"></script>
+
+<style>
+  :root{
+    --ink:#1B2A4A;
+    --ink-2:#2E4066;
+    --paper:#F6F3EA;
+    --paper-2:#EEE8D9;
+    --card:#FCFAF3;
+    --sage:#6B8F71;
+    --sage-dark:#4F6E55;
+    --amber:#D98E3D;
+    --clay:#B5493F;
+    --charcoal:#2B2B2B;
+    --line:#E1D9C4;
+    --muted:#8A806D;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--charcoal);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #yks-app{
+    display:flex;
+    min-height:100vh;
+    background:
+      repeating-linear-gradient(to bottom, transparent, transparent 38px, rgba(27,42,74,0.045) 39px),
+      var(--paper);
+  }
+  .yks-sidebar{
+    width:220px;
+    flex:0 0 220px;
+    background:var(--ink);
+    color:#EFE9DA;
+    padding:28px 0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    position:sticky;
+    top:0;
+    align-self:flex-start;
+    min-height:100vh;
+  }
+  .yks-brand{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:20px;
+    padding:0 22px 22px 22px;
+    border-bottom:1px solid rgba(255,255,255,0.12);
+    margin-bottom:14px;
+    letter-spacing:0.2px;
+  }
+  .yks-brand small{
+    display:block;
+    font-family:'Inter',sans-serif;
+    font-weight:500;
+    font-size:11.5px;
+    color:#B9C3D6;
+    margin-top:4px;
+    letter-spacing:0.4px;
+    text-transform:uppercase;
+  }
+  .yks-tab{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 22px;
+    cursor:pointer;
+    font-size:14.5px;
+    font-weight:500;
+    color:#CBD3E3;
+    border-left:3px solid transparent;
+    transition:background .15s, color .15s;
+  }
+  .yks-tab .yks-tab-num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;
+    color:#7C88A6;
+    width:18px;
+  }
+  .yks-tab:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .yks-tab.active{
+    background:rgba(255,255,255,0.09);
+    border-left-color:var(--amber);
+    color:#fff;
+  }
+  .yks-tab.active .yks-tab-num{ color:var(--amber); }
+  .yks-main{
+    flex:1;
+    padding:36px 44px 80px 44px;
+    max-width:1080px;
+  }
+  .yks-h1{
+    font-family:'Fraunces',serif;
+    font-size:30px;
+    font-weight:700;
+    margin:0 0 6px 0;
+    color:var(--ink);
+  }
+  .yks-sub{
+    color:var(--muted);
+    font-size:14.5px;
+    margin:0 0 28px 0;
+  }
+  .yks-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    margin-bottom:20px;
+  }
+  .yks-card-title{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:17px;
+    color:var(--ink);
+    margin:0 0 14px 0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .yks-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .yks-grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:820px){ .yks-grid2,.yks-grid3{grid-template-columns:1fr;} }
+
+  label.yks-label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    margin-bottom:6px;
+  }
+  input[type=text], input[type=date], input[type=number], select, textarea{
+    width:100%;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    padding:9px 11px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:#fff;
+    color:var(--charcoal);
+  }
+  input:focus, select:focus, textarea:focus{
+    outline:2px solid var(--sage);
+    outline-offset:1px;
+  }
+  textarea{ resize:vertical; min-height:70px; }
+  .yks-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    padding:10px 18px;
+    border-radius:9px;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .yks-btn:hover{ background:var(--ink-2); }
+  .yks-btn.amber{ background:var(--amber); }
+  .yks-btn.amber:hover{ background:#C27A28; }
+  .yks-btn.sage{ background:var(--sage); }
+  .yks-btn.sage:hover{ background:var(--sage-dark); }
+  .yks-btn.ghost{
+    background:transparent;
+    color:var(--clay);
+    border:1px solid var(--clay);
+    padding:6px 12px;
+    font-size:12.5px;
+  }
+  .yks-btn.ghost:hover{ background:rgba(181,73,63,0.08); }
+  .yks-btn.small{ padding:6px 12px; font-size:12.5px; }
+  .yks-pill{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:100px;
+    font-size:11.5px;
+    font-weight:700;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .yks-pill.tyt{ background:rgba(107,143,113,0.16); color:var(--sage-dark); }
+  .yks-pill.ayt{ background:rgba(217,142,61,0.18); color:#9C6221; }
+  .yks-pill.book{ background:rgba(27,42,74,0.09); color:var(--ink); }
+
+  /* Dashboard hero ruler */
+  .yks-ruler-wrap{ overflow-x:auto; padding-bottom:6px; }
+  .yks-stat-row{ display:flex; gap:16px; flex-wrap:wrap; margin-bottom:6px; }
+  .yks-stat{
+    flex:1;
+    min-width:130px;
+    background:var(--paper-2);
+    border-radius:11px;
+    padding:14px 16px;
+  }
+  .yks-stat .num{
+    font-family:'JetBrains Mono',monospace;
+    font-size:26px;
+    font-weight:700;
+    color:var(--ink);
+    line-height:1;
+  }
+  .yks-stat .lbl{ font-size:12px; color:var(--muted); margin-top:6px; font-weight:600; }
+
+  /* Weekly plan */
+  .yks-week{
+    border:1px solid var(--line);
+    border-radius:12px;
+    margin-bottom:12px;
+    overflow:hidden;
+    background:var(--card);
+  }
+  .yks-week-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:13px 18px;
+    cursor:pointer;
+    background:var(--paper-2);
+  }
+  .yks-week-head.current{ background:rgba(217,142,61,0.16); }
+  .yks-week-title{ font-weight:700; font-size:14.5px; color:var(--ink); }
+  .yks-week-dates{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin-left:10px; }
+  .yks-week-progress{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--sage-dark); font-weight:700; }
+  .yks-week-body{ padding:14px 18px 18px 18px; display:none; }
+  .yks-week-body.open{ display:block; }
+  .yks-subj-block{ margin-bottom:14px; }
+  .yks-subj-name{ font-weight:700; font-size:13px; color:var(--ink-2); margin-bottom:6px; }
+  .yks-topic-row{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:5px 0;
+    font-size:13.5px;
+    border-bottom:1px dashed var(--line);
+  }
+  .yks-topic-row:last-child{ border-bottom:none; }
+  .yks-topic-row input[type=checkbox]{ width:16px; height:16px; accent-color:var(--sage); flex:0 0 auto; }
+  .yks-topic-row.done label{ text-decoration:line-through; color:var(--muted); }
+  .yks-topic-row label{ flex:1; cursor:pointer; }
+  .yks-mark-weak{
+    border:none; background:none; color:var(--clay); font-size:11px; cursor:pointer;
+    font-weight:700; opacity:0.55; padding:2px 4px;
+  }
+  .yks-mark-weak:hover{ opacity:1; }
+  .yks-review-list{ font-size:13.5px; line-height:1.9; color:var(--charcoal); }
+
+  table.yks-table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.yks-table th{
+    text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:0.3px;
+    color:var(--muted); border-bottom:2px solid var(--line); padding:8px 8px;
+  }
+  table.yks-table td{ padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.yks-table tr:last-child td{ border-bottom:none; }
+  .yks-net-total{ font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--ink); }
+  .yks-empty{
+    text-align:center; padding:34px 20px; color:var(--muted); font-size:14px;
+    border:1px dashed var(--line); border-radius:12px; background:var(--paper-2);
+  }
+  .yks-log-item{
+    border:1px solid var(--line); border-radius:11px; padding:12px 14px; margin-bottom:10px; background:var(--card);
+  }
+  .yks-log-item.wrong{ border-left:4px solid var(--clay); }
+  .yks-log-item.good{ border-left:4px solid var(--sage); }
+  .yks-log-item.qitem{ border-left:4px solid var(--amber); }
+  .yks-photo-thumb{ max-width:240px; max-height:240px; border-radius:9px; margin-top:8px; display:block; border:1px solid var(--line); }
+  .yks-photo-input-wrap input[type=file]{
+    font-size:12.5px; padding:7px; background:var(--paper-2); border:1px dashed var(--line); border-radius:9px; width:100%;
+  }
+  .yks-log-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+  .yks-log-meta{ font-size:11.5px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+  .yks-filter-bar{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .yks-chip{
+    padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
+    border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--charcoal);
+  }
+  .yks-chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .yks-toast{
+    position:fixed; bottom:22px; right:26px; background:var(--ink); color:#fff;
+    padding:11px 18px; border-radius:10px; font-size:13.5px; font-weight:600;
+    box-shadow:0 6px 18px rgba(0,0,0,0.18); opacity:0; transform:translateY(8px);
+    transition:opacity .2s, transform .2s; pointer-events:none; z-index:999;
+  }
+  .yks-toast.show{ opacity:1; transform:translateY(0); }
+  ::selection{ background:rgba(217,142,61,0.35); }
+
+  .yks-modal-overlay{
+    position:fixed; inset:0; background:rgba(27,42,74,0.55);
+    display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px;
+  }
+  .yks-modal-box{
+    background:var(--card); border-radius:16px; padding:28px 30px; width:320px;
+    max-width:100%; box-shadow:0 20px 50px rgba(0,0,0,0.25);
+  }
+  .yks-agenda-block{ border-top:1px dashed var(--line); margin-top:14px; padding-top:4px; }
+  .yks-agenda-days{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-top:6px; }
+  .yks-agenda-day textarea{ min-height:74px; font-size:12px; padding:7px 8px; }
+  @media (max-width:900px){ .yks-agenda-days{ grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+
+<div id="yks-app">
+  <div class="yks-sidebar">
+    <div class="yks-brand">YKS 2028<small>Çalışma Koçu</small></div>
+    <div class="yks-tab active" data-tab="dashboard"><span class="yks-tab-num">01</span>Panel</div>
+    <div class="yks-tab" data-tab="tyt_program"><span class="yks-tab-num">02</span>TYT Programı</div>
+    <div class="yks-tab" data-tab="ayt_program"><span class="yks-tab-num">03</span>AYT Programı</div>
+    <div class="yks-tab" data-tab="net"><span class="yks-tab-num">04</span>Net Hesaplama</div>
+    <div class="yks-tab" data-tab="eksik"><span class="yks-tab-num">05</span>Eksik Konular</div>
+    <div class="yks-tab" data-tab="sorular"><span class="yks-tab-num">06</span>Soru Kayıtları</div>
+    <div class="yks-tab" data-tab="kitaplar"><span class="yks-tab-num">07</span>Kitaplarım</div>
+    <div class="yks-tab" data-tab="cikmis"><span class="yks-tab-num">08</span>Çıkmış Sorular</div>
+    <div class="yks-tab" data-tab="ornek"><span class="yks-tab-num">09</span>Örnek Sorular</div>
+  </div>
+  <div class="yks-main" id="yks-main"></div>
+</div>
+<div class="yks-toast" id="yks-toast"></div>
+
+<script>
+(function(){
+
+// ---------- CURRICULUM DATA ----------
+const TYT_SUBJECTS = {
+  turkce: { name:"Türkçe", group:"tyt", topics:[
+    "Sözcükte Anlam","Söz Yorumu","Cümlede Anlam","Paragrafta Anlam","Paragrafta Yapı-Düşünceyi Geliştirme Yolları",
+    "Ses Bilgisi","Yazım Kuralları","Noktalama İşaretleri","Sözcükte Yapı / Ekler","İsimler","Zamirler","Sıfatlar",
+    "Zarflar","Edat - Bağlaç - Ünlem","Fiiller (Kip-Kişi-Yapı)","Ek Fiil","Fiilimsi","Fiilde Çatı","Cümlenin Ögeleri",
+    "Cümle Türleri","Anlatım Bozukluğu"
+  ]},
+  matematik: { name:"Matematik (TYT)", group:"tyt", topics:[
+    "Temel Kavramlar","Sayı Basamakları","Bölme - Bölünebilme","EBOB - EKOK","Rasyonel Sayılar","Basit Eşitsizlik",
+    "Mutlak Değer","Üslü Sayılar","Köklü Sayılar","Çarpanlara Ayırma","Oran - Orantı","Denklem Çözme",
+    "Sayı Problemleri","Yaş Problemleri","Hareket Problemleri","İşçi - Havuz Problemleri","Yüzde Problemleri",
+    "Kar - Zarar Problemleri","Karışım Problemleri","Kümeler","Fonksiyonlar","Polinomlar","2. Dereceden Denklemler",
+    "Permütasyon - Kombinasyon","Olasılık","İstatistik","Doğruda Açılar","Üçgende Açı","Üçgende Alan-Kenar",
+    "Çokgenler","Dörtgenler","Çember ve Daire","Analitik Geometri","Katı Cisimler","Trigonometri (Temel)"
+  ]},
+  fizik: { name:"Fizik (TYT)", group:"tyt", topics:[
+    "Fizik Bilimine Giriş","Madde ve Özellikleri","Sıvıların Kaldırma Kuvveti","Basınç","Isı, Sıcaklık ve Genleşme",
+    "Hareket ve Kuvvet","Newton'un Hareket Yasaları","İş, Güç ve Enerji","Elektrostatik","Elektrik Akımı",
+    "Manyetizma","Optik (Aydınlanma-Yansıma-Kırılma)","Dalgalar"
+  ]},
+  kimya: { name:"Kimya (TYT)", group:"tyt", topics:[
+    "Kimya Bilimi","Atom ve Yapısı","Periyodik Sistem","Kimyasal Türler Arası Etkileşimler","Maddenin Halleri",
+    "Kimyasal Hesaplamalar (Mol Kavramı)","Karışımlar","Asit - Baz - Tuz","Kimya Her Yerde"
+  ]},
+  biyoloji: { name:"Biyoloji (TYT)", group:"tyt", topics:[
+    "Canlıların Ortak Özellikleri","Canlıların Temel Bileşenleri","Hücre ve Organeller","Canlıların Sınıflandırılması",
+    "Hücre Zarından Madde Geçişi","Mitoz ve Eşeysiz Üreme","Mayoz ve Eşeyli Üreme","Kalıtım","Ekosistem Ekolojisi",
+    "Güncel Çevre Sorunları"
+  ]},
+  tarih: { name:"Tarih (TYT)", group:"tyt", topics:[
+    "Tarih ve Zaman","İnsanlığın İlk Dönemleri","İlk Uygarlıklar","İslamiyet Öncesi Türk Tarihi","İslam Tarihi ve Uygarlığı",
+    "Türk-İslam Devletleri","Türkiye Tarihi (Anadolu Selçuklu)","Beylikten Devlete Osmanlı","Dünya Gücü Osmanlı",
+    "Arayış Yılları ve Duraklama","Değişim Çağı ve Diplomasi","En Uzun Yüzyıl (Osmanlı Son Dönem",
+    "20. Yüzyılda Osmanlı ve Dünya","Milli Mücadele - Kurtuluş Savaşı","Atatürk İlkeleri ve İnkılapları","Türk Dış Politikası"
+  ]},
+  cografya: { name:"Coğrafya (TYT)", group:"tyt", topics:[
+    "Doğa ve İnsan","Dünya'nın Şekli ve Hareketleri","Coğrafi Konum","Harita Bilgisi","İklim Bilgisi","Basınç ve Rüzgarlar",
+    "İç Kuvvetler (Yerin Şekillenmesi)","Dış Kuvvetler ve Yer Şekilleri","Su - Toprak ve Bitkiler","Nüfus",
+    "Göç","Yerleşme","Ekonomik Faaliyetler (Tarım)","Ekonomik Faaliyetler (Sanayi-Ulaşım-Ticaret)","Türkiye'nin Yeri ve Konumu",
+    "Çevre ve Toplum"
+  ]},
+  felsefe: { name:"Felsefe (TYT)", group:"tyt", topics:[
+    "Felsefenin Alanı","Bilgi Felsefesi","Bilim Felsefesi","Varlık Felsefesi","Ahlak Felsefesi","Sanat Felsefesi",
+    "Din Felsefesi","Siyaset Felsefesi","MÖ 6.-MS 2. yy Felsefesi","MS 2.-15. yy Felsefesi","15.-17. yy Felsefesi",
+    "18.-19. yy Felsefesi","20. yy Felsefesi"
+  ]},
+  din: { name:"Din Kültürü (TYT)", group:"tyt", topics:[
+    "Bilgi ve İnanç","İslam ve İbadet","İslam Düşüncesinde Yorumlar","Din, Kültür ve Medeniyet","Hz. Muhammed'in Hayatı",
+    "Vahiy ve Akıl","Ahlaki Tutum ve Davranışlar","Güncel Dini Meseleler"
+  ]}
+};
+
+const AYT_SUBJECTS = {
+  matematik_ayt: { name:"Matematik (AYT)", group:"ayt", tracks:["sayisal","ea"], topics:[
+    "Fonksiyonlarda Uygulamalar","Polinomlarda İşlemler","2. Dereceden Denklemler (İleri)","Karmaşık Sayılar",
+    "Eşitsizlikler","Parabol","Trigonometri (İleri)","Logaritma","Diziler","Toplam - Çarpım Sembolleri","Limit",
+    "Türev","İntegral","Analitik Geometri (İleri)","Katı Cisimler (İleri)"
+  ]},
+  fizik_ayt: { name:"Fizik (AYT)", group:"ayt", tracks:["sayisal"], topics:[
+    "Vektörler ve Kuvvet","Tork ve Denge","Kütle Merkezi","Basit Makineler","İtme ve Momentum","Elektrik Alan ve Potansiyel",
+    "Manyetik Alan ve İndüksiyon","Alternatif Akım","Çembersel Hareket","Kütle Çekim ve Kepler Yasaları",
+    "Basit Harmonik Hareket","Dalga Mekaniği (İleri)","Atom Fiziğine Giriş ve Radyoaktivite","Modern Fizik"
+  ]},
+  kimya_ayt: { name:"Kimya (AYT)", group:"ayt", tracks:["sayisal"], topics:[
+    "Modern Atom Teorisi","Gazlar","Sıvı Çözeltiler ve Çözünürlük","Kimyasal Tepkimelerde Enerji","Reaksiyon Hızları",
+    "Kimyasal Denge","Asit-Baz Dengesi","Çözünürlük Dengesi","Elektrokimya","Organik Kimyaya Giriş",
+    "Organik Kimya (Hidrokarbonlar)","Organik Kimya (Fonksiyonel Gruplar)","Enerji Kaynakları ve Bilimsel Gelişmeler"
+  ]},
+  biyoloji_ayt: { name:"Biyoloji (AYT)", group:"ayt", tracks:["sayisal"], topics:[
+    "Sinir Sistemi","Endokrin Sistem","Duyu Organları","Destek ve Hareket Sistemi","Sindirim Sistemi","Dolaşım ve Bağışıklık",
+    "Solunum Sistemi","Üriner Sistem (Boşaltım)","Üreme Sistemi ve Embriyonik Gelişim","Komünite ve Popülasyon Ekolojisi",
+    "Genden Proteine","Canlılık ve Enerji","Fotosentez","Kemosentez ve Hücresel Solunum","Bitki Biyolojisi","Canlılar ve Çevre (İleri)"
+  ]},
+  edebiyat: { name:"Türk Dili ve Edebiyatı", group:"ayt", tracks:["ea","sozel"], topics:[
+    "Anlam Bilgisi (İleri)","Şiir Bilgisi","Edebi Sanatlar","İslamiyet Öncesi Türk Edebiyatı","Halk Edebiyatı",
+    "Divan Edebiyatı","Tanzimat Edebiyatı","Servet-i Fünun Edebiyatı","Fecr-i Ati Edebiyatı","Milli Edebiyat",
+    "Cumhuriyet Dönemi Şiiri","Cumhuriyet Dönemi Roman - Hikaye","Cumhuriyet Dönemi Tiyatro ve Diğer Türler",
+    "Dünya Edebiyatından Örnekler"
+  ]},
+  tarih1: { name:"Tarih-1", group:"ayt", tracks:["ea","sozel"], topics:[
+    "Tarih ve Zaman (AYT)","Uygarlığın Doğuşu","Türk-İslam Devletleri (AYT)","Beylikten Devlete (AYT)",
+    "Dünya Gücü Osmanlı (AYT)","Arayış Yılları (AYT)"
+  ]},
+  tarih2: { name:"Tarih-2", group:"ayt", tracks:["sozel"], topics:[
+    "Değişim Çağı ve Diplomasi (AYT)","En Uzun Yüzyıl (AYT)","20. Yüzyılda Osmanlı Devleti (AYT)",
+    "I. Dünya Savaşı ve Milli Mücadele","Atatürkçülük ve Türk İnkılabı (AYT)","İki Savaş Arası Dönemde Türkiye ve Dünya",
+    "II. Dünya Savaşı Sürecinde Türkiye ve Dünya","Soğuk Savaş Dönemi","Yumuşama Dönemi ve Sonrası","Küreselleşen Dünya"
+  ]},
+  cografya1: { name:"Coğrafya-1", group:"ayt", tracks:["ea","sozel"], topics:[
+    "Ekosistem ve Madde Döngüleri","Nüfus Politikaları","Şehirlerin Fonksiyonları","Türkiye Ekonomisinde Tarım",
+    "Türkiye Ekonomisinde Madenler ve Enerji","Türkiye Ekonomisinde Sanayi"
+  ]},
+  cografya2: { name:"Coğrafya-2", group:"ayt", tracks:["sozel"], topics:[
+    "Ulaşım ve Ticaret (AYT)","Bölgeler ve Ülkeler","Küresel Ortam: Bölgeler ve Ülkeler","Çevre ve Toplum (AYT)",
+    "Doğal Afetler","Türkiye'nin Jeopolitik Konumu","Küresel Ortam - Uluslararası İlişkiler"
+  ]},
+  felsefe_grubu: { name:"Felsefe Grubu (Felsefe+Din)", group:"ayt", tracks:["sozel"], topics:[
+    "Bilgi Felsefesi (AYT)","Bilim Felsefesi (AYT)","Sanat Felsefesi (AYT)","Din Felsefesi (AYT)","Siyaset Felsefesi (AYT)",
+    "Ahlak Felsefesi (AYT)","İslam Düşüncesinde Yorumlar (AYT)","Güncel Dini Meseleler (AYT)"
+  ]}
+};
+
+const TRACK_LABELS = { sayisal:"Sayısal", ea:"Eşit Ağırlık", sozel:"Sözel" };
+
+const NET_SUBJECTS = {
+  tyt: [
+    {key:"turkce", name:"Türkçe", max:40},
+    {key:"sos_tarih", name:"Tarih", max:5},
+    {key:"sos_cografya", name:"Coğrafya", max:5},
+    {key:"sos_felsefe", name:"Felsefe", max:5},
+    {key:"sos_din", name:"Din Kültürü", max:5},
+    {key:"matematik", name:"Matematik", max:40},
+    {key:"fen_fizik", name:"Fizik", max:7},
+    {key:"fen_kimya", name:"Kimya", max:7},
+    {key:"fen_biyoloji", name:"Biyoloji", max:6}
+  ],
+  ayt_sayisal: [
+    {key:"matematik", name:"Matematik", max:40},
+    {key:"fizik", name:"Fizik", max:14},
+    {key:"kimya", name:"Kimya", max:13},
+    {key:"biyoloji", name:"Biyoloji", max:13}
+  ],
+  ayt_ea: [
+    {key:"matematik", name:"Matematik", max:40},
+    {key:"edebiyat", name:"Edebiyat", max:24},
+    {key:"tarih1", name:"Tarih-1", max:10},
+    {key:"cografya1", name:"Coğrafya-1", max:6}
+  ],
+  ayt_sozel: [
+    {key:"edebiyat", name:"Edebiyat", max:24},
+    {key:"tarih1", name:"Tarih-1", max:10},
+    {key:"cografya1", name:"Coğrafya-1", max:6},
+    {key:"tarih2", name:"Tarih-2", max:11},
+    {key:"cografya2", name:"Coğrafya-2", max:11},
+    {key:"felsefe_grubu", name:"Felsefe Grubu", max:12},
+    {key:"din", name:"Din Kültürü", max:6}
+  ]
+};
+
+// ---------- STATE ----------
+let state = {
+  profile: { name: null, startDate: null, examDate: "2028-06-18", track: "sayisal" },
+  checks: {},
+  weakTopics: [],
+  netResults: [],
+  questionLog: [],
+  books: [],
+  pastExams: {},
+  weekAgenda: {}
+};
+let netChart = null;
+let openWeeks = {};
+let netFormType = "tyt";
+let saving = false;
+let tytSubjectFilter = null;
+let aytSubjectFilter = null;
+let photoCache = {};
+let pendingPhoto = null; // { dataUrl } for the question form currently being filled
+let pdfCache = {};
+let newBookId = null;
+let pendingBookHasPdf = false;
+let examSubjectFilter = null;
+let ornekSubjectFilter = null;
+let practiceTopic = "";
+let practiceResults = [];
+let practiceLoading = false;
+let practiceError = "";
+const EXAM_YEARS = (function(){ const arr=[]; for(let y=2026; y>=2018; y--) arr.push(y); return arr; })();
+const YEAR_OSYM_LINKS = {
+  2026: "https://www.osym.gov.tr/TR,34130/2026-yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2025: "https://www.osym.gov.tr/TR,33280/2025-yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2024: "https://www.osym.gov.tr/TR,29436/2024-yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2023: "https://www.osym.gov.tr/TR,25588/2023-yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2022: "https://www.osym.gov.tr/TR,23824/2022-yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2021: "https://www.osym.gov.tr/TR,21158/2021-yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2020: "https://www.osym.gov.tr/TR,19369/2020-yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2019: "https://www.osym.gov.tr/TR,15782/2019-yks-tyt-ayt-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html",
+  2018: "https://www.osym.gov.tr/TR,15134/2018-yks-tyt-ayt-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari.html"
+};
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function fmtDate(d){
+  if(!d) return "-";
+  const parts = d.split("-");
+  if(parts.length!==3) return d;
+  return parts[2] + "." + parts[1] + "." + parts[0];
+}
+
+async function loadState(){
+  try{
+    const res = await window.storage.get('yks_data', false);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      state = Object.assign(state, parsed);
+    }
+  }catch(e){ /* no data yet */ }
+  if(!state.profile.startDate) state.profile.startDate = todayStr();
+}
+
+async function saveState(){
+  try{
+    await window.storage.set('yks_data', JSON.stringify(state), false);
+  }catch(e){
+    toast("Kaydetme hatası, tekrar deneyin.");
+  }
+}
+
+function toast(msg){
+  const el = document.getElementById('yks-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window._yksToastT);
+  window._yksToastT = setTimeout(()=>el.classList.remove('show'), 2200);
+}
+
+function uploadPdfToKey(file, key, maxBytes){
+  maxBytes = maxBytes || 4500000;
+  if(!file) return Promise.resolve(null);
+  if(file.type && file.type !== 'application/pdf'){
+    toast("Lütfen bir PDF dosyası seç.");
+    return Promise.resolve(null);
+  }
+  if(file.size > maxBytes){
+    toast("Bu dosya çok büyük (yaklaşık 5 MB üstü). Daha küçük / bölünmüş bir PDF dene.");
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = async (e)=>{
+      const dataUrl = e.target.result;
+      try{
+        const res = await window.storage.set(key, dataUrl, false);
+        if(!res){ toast("PDF kaydedilemedi, tekrar dene."); resolve(null); return; }
+        pdfCache[key] = dataUrl;
+        resolve(dataUrl);
+      }catch(err){
+        toast("PDF kaydedilemedi — dosya çok büyük olabilir.");
+        resolve(null);
+      }
+    };
+    reader.onerror = ()=>{ toast("Dosya okunamadı."); resolve(null); };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function openStoredPdf(key){
+  let dataUrl = pdfCache[key];
+  if(!dataUrl){
+    try{
+      const res = await window.storage.get(key, false);
+      if(res && res.value) dataUrl = res.value;
+    }catch(e){ /* not found */ }
+  }
+  if(dataUrl){
+    pdfCache[key] = dataUrl;
+    const w = window.open();
+    if(w){
+      w.document.write('<title>PDF</title><iframe src="'+dataUrl+'" style="border:none;width:100%;height:100vh;"></iframe>');
+    } else {
+      toast("Yeni sekme açılamadı, tarayıcı ayarlarını kontrol et.");
+    }
+  } else {
+    toast("PDF bulunamadı.");
+  }
+}
+
+async function deleteStoredPdf(key){
+  delete pdfCache[key];
+  try{ await window.storage.delete(key, false); }catch(e){ /* already gone */ }
+}
+
+// ---------- WEEK PLAN LOGIC ----------
+function getActiveAytSubjects(){
+  const track = state.profile.track;
+  const out = {};
+  Object.keys(AYT_SUBJECTS).forEach(k=>{
+    if(AYT_SUBJECTS[k].tracks.includes(track)) out[k] = AYT_SUBJECTS[k];
+  });
+  return out;
+}
+function getAllActiveSubjects(){
+  return Object.assign({}, TYT_SUBJECTS, getActiveAytSubjects());
+}
+
+function getWeeksInfo(){
+  const start = new Date(state.profile.startDate + "T00:00:00");
+  // Snap to the Monday on/before the start date so every week (and the agenda) begins on Pazartesi
+  const dow = start.getDay(); // 0=Sun..6=Sat
+  const diffToMonday = (dow === 0) ? -6 : (1 - dow);
+  start.setDate(start.getDate() + diffToMonday);
+  const exam = new Date(state.profile.examDate + "T00:00:00");
+  let totalWeeks = Math.ceil((exam - start) / (7*24*3600*1000));
+  if(totalWeeks < 4) totalWeeks = 4;
+  const weeksForTopics = Math.max(2, Math.floor(totalWeeks * 0.65));
+  return { start, exam, totalWeeks, weeksForTopics };
+}
+
+function buildWeeklyAssignments(){
+  const { weeksForTopics } = getWeeksInfo();
+  const subjects = getAllActiveSubjects();
+  const weekMap = {}; // weekIndex -> { subjKey: [topics] }
+  Object.keys(subjects).forEach(subjKey=>{
+    const topics = subjects[subjKey].topics;
+    topics.forEach((topic, i)=>{
+      let w = Math.floor(i * weeksForTopics / topics.length);
+      if(w >= weeksForTopics) w = weeksForTopics - 1;
+      if(!weekMap[w]) weekMap[w] = {};
+      if(!weekMap[w][subjKey]) weekMap[w][subjKey] = [];
+      weekMap[w][subjKey].push(topic);
+    });
+  });
+  return weekMap;
+}
+
+function topicKey(subjKey, topic){ return subjKey + "::" + topic; }
+
+function computeOverallProgress(){
+  const subjects = getAllActiveSubjects();
+  let total=0, done=0;
+  Object.keys(subjects).forEach(subjKey=>{
+    subjects[subjKey].topics.forEach(topic=>{
+      total++;
+      if(state.checks[topicKey(subjKey, topic)]) done++;
+    });
+  });
+  return { total, done, pct: total? Math.round(done/total*100):0 };
+}
+
+function weekDateRange(idx, start){
+  const s = new Date(start.getTime() + idx*7*24*3600*1000);
+  const e = new Date(s.getTime() + 6*24*3600*1000);
+  const f = d => (d.getDate()+"").padStart(2,'0')+"."+((d.getMonth()+1)+"").padStart(2,'0');
+  return f(s) + " – " + f(e);
+}
+
+function currentWeekIndex(){
+  const { start } = getWeeksInfo();
+  const now = new Date();
+  const diff = Math.floor((now - start) / (7*24*3600*1000));
+  return diff;
+}
+
+// ---------- RENDER: ROOT ----------
+const TABS = ["dashboard","tyt_program","ayt_program","net","eksik","sorular","kitaplar","cikmis","ornek"];
+let activeTab = "dashboard";
+
+function render(){
+  document.querySelectorAll('.yks-tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab === activeTab);
+  });
+  const main = document.getElementById('yks-main');
+  if(activeTab==="dashboard") main.innerHTML = renderDashboard();
+  else if(activeTab==="tyt_program") main.innerHTML = renderProgramGroup("tyt");
+  else if(activeTab==="ayt_program") main.innerHTML = renderProgramGroup("ayt");
+  else if(activeTab==="net") main.innerHTML = renderNet();
+  else if(activeTab==="eksik") main.innerHTML = renderEksik();
+  else if(activeTab==="sorular") main.innerHTML = renderSorular();
+  else if(activeTab==="kitaplar") main.innerHTML = renderKitaplar();
+  else if(activeTab==="cikmis") main.innerHTML = renderCikmis();
+  else if(activeTab==="ornek") main.innerHTML = renderOrnekSorular();
+  attachHandlers();
+  if(activeTab==="net") setTimeout(renderNetChart, 30);
+  if(activeTab==="sorular") setTimeout(loadVisiblePhotos, 30);
+}
+
+// ---------- DASHBOARD ----------
+function renderDashboard(){
+  const prog = computeOverallProgress();
+  const { totalWeeks, weeksForTopics } = getWeeksInfo();
+  const curWeek = currentWeekIndex();
+  const examDate = new Date(state.profile.examDate + "T00:00:00");
+  const daysLeft = Math.max(0, Math.ceil((examDate - new Date())/(24*3600*1000)));
+  const tytResults = state.netResults.filter(r=>r.type==='tyt');
+  const aytResults = state.netResults.filter(r=>r.type==='ayt');
+  const lastTyt = tytResults[tytResults.length-1];
+  const lastAyt = aytResults[aytResults.length-1];
+
+  // ruler ticks (signature element)
+  let ticks = "";
+  const rulerWeeks = Math.min(totalWeeks, 60);
+  const step = totalWeeks>60 ? Math.ceil(totalWeeks/60) : 1;
+  for(let i=0;i<totalWeeks;i+=step){
+    const isNow = i<=curWeek && curWeek < i+step;
+    const major = i % 4 === 0;
+    ticks += `<div style="flex:0 0 auto;width:${Math.max(6,600/rulerWeeks)}px;display:flex;flex-direction:column;align-items:center;">
+      <div style="width:2px;height:${major?18:10}px;background:${isNow?'var(--amber)':'var(--ink)'};opacity:${isNow?1:0.35}"></div>
+      ${major? `<div style="font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted);margin-top:3px;">${i+1}</div>`:''}
+    </div>`;
+  }
+
+  return `
+    <h1 class="yks-h1">Panel</h1>
+    <p class="yks-sub">${state.profile.name? `Merhaba, ${escapeHtml(state.profile.name)} 👋 — ` : ''}2028 YKS'ye hazırlık yolculuğun burada. Her hafta bir adım.</p>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Sınava Kalan Süre <span class="yks-pill ${daysLeft<200?'ayt':'tyt'}">${daysLeft} gün</span></div>
+      <div class="yks-ruler-wrap">
+        <div style="display:flex;align-items:flex-end;min-width:600px;padding:4px 0 0 0;">${ticks}</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;">
+        Hafta ${Math.min(curWeek+1, totalWeeks)} / ${totalWeeks} · İlk ${weeksForTopics} hafta konu bitirme, kalan ${totalWeeks-weeksForTopics} hafta tekrar &amp; deneme dönemi
+      </div>
+    </div>
+
+    <div class="yks-stat-row">
+      <div class="yks-stat"><div class="num">%${prog.pct}</div><div class="lbl">KONU TAMAMLAMA</div></div>
+      <div class="yks-stat"><div class="num">${prog.done}/${prog.total}</div><div class="lbl">BİTEN KONU</div></div>
+      <div class="yks-stat"><div class="num">${lastTyt? lastTyt.totalNet.toFixed(2):'—'}</div><div class="lbl">SON TYT NETİ</div></div>
+      <div class="yks-stat"><div class="num">${lastAyt? lastAyt.totalNet.toFixed(2):'—'}</div><div class="lbl">SON AYT NETİ</div></div>
+      <div class="yks-stat"><div class="num">${state.weakTopics.length}</div><div class="lbl">EKSİK KONU</div></div>
+    </div>
+
+    <div class="yks-grid2">
+      <div class="yks-card">
+        <div class="yks-card-title">Profil Ayarları</div>
+        <label class="yks-label">Adın</label>
+        <input type="text" id="inp-name" value="${escapeAttr(state.profile.name||'')}" placeholder="Adını yaz" style="margin-bottom:12px;">
+        <label class="yks-label">Çalışmaya Başlama Tarihi</label>
+        <input type="date" id="inp-start" value="${state.profile.startDate}" style="margin-bottom:12px;">
+        <label class="yks-label">Sınav Tarihi</label>
+        <input type="date" id="inp-exam" value="${state.profile.examDate}" style="margin-bottom:12px;">
+        <label class="yks-label">Alan / Puan Türü</label>
+        <select id="inp-track" style="margin-bottom:14px;">
+          <option value="sayisal" ${state.profile.track==='sayisal'?'selected':''}>Sayısal</option>
+          <option value="ea" ${state.profile.track==='ea'?'selected':''}>Eşit Ağırlık</option>
+          <option value="sozel" ${state.profile.track==='sozel'?'selected':''}>Sözel</option>
+        </select>
+        <button class="yks-btn" id="btn-save-profile">Profili Kaydet</button>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Giriş yapan hesap: ${escapeHtml((typeof currentUser!=='undefined' && currentUser && currentUser.email) || '-')}</div>
+          <button class="yks-btn ghost small" id="btn-signout">Çıkış Yap</button>
+        </div>
+      </div>
+      <div class="yks-card">
+        <div class="yks-card-title">Son Eklenen Sorular</div>
+        ${renderRecentQuestions()}
+      </div>
+    </div>
+  `;
+}
+
+function renderRecentQuestions(){
+  const items = state.questionLog.slice(-3).reverse();
+  if(items.length===0) return `<div class="yks-empty">Henüz soru kaydı yok. "Soru Kayıtları" sekmesinden ekleyebilirsin.</div>`;
+  return items.map(q=>`
+    <div class="yks-log-item qitem">
+      <div class="yks-log-top">
+        <strong style="font-size:13px;">${escapeHtml(q.subject)}${q.topic? ' · '+escapeHtml(q.topic):''}</strong>
+        <span class="yks-log-meta">${fmtDate(q.date)}</span>
+      </div>
+      <div style="font-size:13px;color:var(--charcoal);">${escapeHtml(q.text).slice(0,120)}${q.text.length>120?'…':''}${q.hasPhoto? ' 📷':''}</div>
+    </div>
+  `).join("");
+}
+
+// ---------- PROGRAM (TYT ve AYT tamamen ayrı) ----------
+function renderProgramGroup(group){
+  const allSubjects = group==='tyt' ? TYT_SUBJECTS : getActiveAytSubjects();
+  const subjKeys = Object.keys(allSubjects);
+
+  let filterVar = group==='tyt' ? tytSubjectFilter : aytSubjectFilter;
+  if(!filterVar || (filterVar!=='all' && !allSubjects[filterVar])) filterVar = subjKeys[0] || 'all';
+  if(group==='tyt') tytSubjectFilter = filterVar; else aytSubjectFilter = filterVar;
+
+  const weekMap = buildWeeklyAssignments();
+  const { start, totalWeeks, weeksForTopics } = getWeeksInfo();
+  const curWeek = currentWeekIndex();
+
+  const chips = `<div class="yks-filter-bar">
+    <div class="yks-chip ${filterVar==='all'?'active':''}" data-progsubj="${group}:all">Tümü</div>
+    ${subjKeys.map(k=>`<div class="yks-chip ${filterVar===k?'active':''}" data-progsubj="${group}:${k}">${allSubjects[k].name}</div>`).join('')}
+  </div>`;
+
+  let infoNote = '';
+  if(group==='ayt' && subjKeys.length===0){
+    infoNote = `<div class="yks-empty">Seçili alan için AYT dersi bulunamadı. Panel sekmesinden alanını (Sayısal / Eşit Ağırlık / Sözel) kontrol et.</div>`;
+  } else if(group==='ayt'){
+    infoNote = `<p class="yks-sub" style="margin-top:-10px;">Henüz 11. sınıftaysan AYT konuları biraz erken olabilir — bu sekme, sırası geldiğinde kullanman için burada hazır duruyor.</p>`;
+  }
+
+  let weeksHtml = "";
+  for(let w=0; w<totalWeeks; w++){
+    const isCurrent = w===curWeek;
+    const wkey = group+':'+w;
+    const isOpen = openWeeks[wkey] || (isCurrent && !(wkey in openWeeks));
+    let subjHtml=""; let weekTotal=0, weekDone=0;
+
+    if(w < weeksForTopics){
+      const assigns = weekMap[w] || {};
+      const relevantKeys = subjKeys.filter(k => assigns[k] && (filterVar==='all' || filterVar===k));
+      if(relevantKeys.length===0){
+        subjHtml = `<div class="yks-review-list">Bu hafta bu derste yeni konu atanmadı — önceki konuları pekiştir.</div>`;
+      } else {
+        relevantKeys.forEach(subjKey=>{
+          const topics = assigns[subjKey];
+          const subjName = allSubjects[subjKey].name;
+          subjHtml += `<div class="yks-subj-block"><div class="yks-subj-name">${subjName}</div>`;
+          topics.forEach(topic=>{
+            const tk = topicKey(subjKey, topic);
+            const done = !!state.checks[tk];
+            weekTotal++; if(done) weekDone++;
+            subjHtml += `<div class="yks-topic-row ${done?'done':''}">
+              <input type="checkbox" data-topickey="${escapeAttr(tk)}" ${done?'checked':''}>
+              <label>${escapeHtml(topic)}</label>
+              <button class="yks-mark-weak" data-weak-subj="${escapeAttr(subjName)}" data-weak-topic="${escapeAttr(topic)}" title="Eksik konu olarak işaretle">EKSİK İŞARETLE</button>
+            </div>`;
+          });
+          subjHtml += `</div>`;
+        });
+      }
+    } else {
+      subjHtml = group==='tyt' ? `<div class="yks-review-list">
+        • Genel tekrar: zayıf olduğun TYT konularını "Eksik Konular"dan gözden geçir.<br>
+        • En az 1 TYT denemesi çöz, "Net Hesaplama"ya kaydet.<br>
+        • Yanlış yaptığın soruları "Soru Kayıtları"na ekle ve tekrar çöz.
+      </div>` : `<div class="yks-review-list">
+        • AYT derslerinde zayıf konularını "Eksik Konular"dan gözden geçir.<br>
+        • En az 1 AYT denemesi çöz, "Net Hesaplama"ya kaydet.<br>
+        • Yanlış yaptığın AYT sorularını "Soru Kayıtları"na ekle ve tekrar çöz.
+      </div>`;
+    }
+
+    const dateRange = weekDateRange(w, start);
+    const progressLabel = (w<weeksForTopics && weekTotal>0) ? `${weekDone}/${weekTotal}` : (w<weeksForTopics? '' : 'Tekrar');
+    const agendaHtml = renderWeekAgenda(w, start);
+
+    weeksHtml += `<div class="yks-week">
+      <div class="yks-week-head ${isCurrent?'current':''}" data-weektoggle="${wkey}">
+        <div><span class="yks-week-title">Hafta ${w+1}${isCurrent?' · Şu An':''}</span><span class="yks-week-dates">${dateRange}</span></div>
+        <div class="yks-week-progress">${progressLabel}</div>
+      </div>
+      <div class="yks-week-body ${isOpen?'open':''}" data-weekbody="${wkey}">${subjHtml}${agendaHtml}</div>
+    </div>`;
+  }
+
+  const title = group==='tyt' ? 'TYT Programı' : 'AYT Programı';
+  return `
+    <h1 class="yks-h1">${title}</h1>
+    <p class="yks-sub">${fmtDate(state.profile.startDate)} — ${fmtDate(state.profile.examDate)} arası ${totalWeeks} hafta ·
+      Konu bitirme dönemi ilk ${weeksForTopics} hafta, sonrası tekrar &amp; deneme.</p>
+    ${infoNote}
+    ${chips}
+    ${weeksHtml}
+  `;
+}
+
+const TURKISH_DAYS = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+
+function renderWeekAgenda(w, start){
+  const agenda = state.weekAgenda[w] || { days:['','','','','','',''] };
+  let dayCells = "";
+  for(let i=0;i<7;i++){
+    const d = new Date(start.getTime() + (w*7 + i)*24*3600*1000);
+    const label = TURKISH_DAYS[d.getDay()];
+    const dateLabel = (d.getDate()+"").padStart(2,'0') + "." + ((d.getMonth()+1)+"").padStart(2,'0');
+    dayCells += `<div class="yks-agenda-day">
+      <label class="yks-label">${label} <span style="font-weight:400;text-transform:none;color:var(--muted);">${dateLabel}</span></label>
+      <textarea data-agendaday="${w}:${i}" placeholder="Plan / not...">${escapeHtml(agenda.days[i]||'')}</textarea>
+    </div>`;
+  }
+  return `<div class="yks-agenda-block">
+    <div class="yks-card-title" style="font-size:14px;margin:16px 0 4px 0;">🗓️ Bu Haftanın Ajandası</div>
+    <div class="yks-agenda-days">${dayCells}</div>
+    <button class="yks-btn sage small" data-saveagenda="${w}" style="margin-top:10px;">Ajandayı Kaydet</button>
+  </div>`;
+}
+
+// ---------- NET HESAPLAMA ----------
+function getNetSubjectList(){
+  if(netFormType==='tyt') return NET_SUBJECTS.tyt;
+  const track = state.profile.track;
+  if(track==='sayisal') return NET_SUBJECTS.ayt_sayisal;
+  if(track==='ea') return NET_SUBJECTS.ayt_ea;
+  return NET_SUBJECTS.ayt_sozel;
+}
+
+function renderNet(){
+  const subjList = getNetSubjectList();
+  const rows = subjList.map(s=>`
+    <tr>
+      <td>${s.name} <span style="color:var(--muted);font-size:11.5px;">(maks ${s.max})</span></td>
+      <td><input type="number" min="0" max="${s.max}" step="1" id="d-${s.key}" placeholder="Doğru" style="width:90px;"></td>
+      <td><input type="number" min="0" max="${s.max}" step="1" id="y-${s.key}" placeholder="Yanlış" style="width:90px;"></td>
+    </tr>
+  `).join("");
+
+  const history = [...state.netResults].reverse();
+  const historyRows = history.length ? history.map(r=>`
+    <tr>
+      <td class="yks-log-meta">${fmtDate(r.date)}</td>
+      <td><span class="yks-pill ${r.type}">${r.type.toUpperCase()}</span></td>
+      <td>${escapeHtml(r.name||'-')}</td>
+      <td class="yks-net-total">${r.totalNet.toFixed(2)}</td>
+      <td><button class="yks-btn ghost small" data-delnet="${r.id}">Sil</button></td>
+    </tr>
+  `).join("") : `<tr><td colspan="5"><div class="yks-empty">Henüz kaydedilmiş deneme sonucu yok.</div></td></tr>`;
+
+  return `
+    <h1 class="yks-h1">Net Hesaplama</h1>
+    <p class="yks-sub">Girdiğin doğru/yanlış sayılarından net otomatik hesaplanır ve tarihiyle kaydedilir (Net = Doğru − Yanlış/4).</p>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Yeni Deneme Sonucu Ekle</div>
+      <div class="yks-filter-bar">
+        <div class="yks-chip ${netFormType==='tyt'?'active':''}" data-nettype="tyt">TYT</div>
+        <div class="yks-chip ${netFormType==='ayt'?'active':''}" data-nettype="ayt">AYT (${TRACK_LABELS[state.profile.track]})</div>
+      </div>
+      <div class="yks-grid2" style="margin-bottom:14px;">
+        <div>
+          <label class="yks-label">Deneme Adı</label>
+          <input type="text" id="net-name" placeholder="Örn: 3D Yayınları Deneme 4">
+        </div>
+        <div>
+          <label class="yks-label">Tarih</label>
+          <input type="date" id="net-date" value="${todayStr()}">
+        </div>
+      </div>
+      <table class="yks-table">
+        <thead><tr><th>Ders</th><th>Doğru</th><th>Yanlış</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:14px;"><button class="yks-btn amber" id="btn-save-net">Kaydet</button></div>
+    </div>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Net Gelişim Grafiği</div>
+      ${state.netResults.length? '<canvas id="net-chart" height="90"></canvas>' : '<div class="yks-empty">Grafik için en az bir deneme sonucu ekle.</div>'}
+    </div>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Geçmiş Sonuçlar</div>
+      <table class="yks-table">
+        <thead><tr><th>Tarih</th><th>Tür</th><th>Deneme</th><th>Toplam Net</th><th></th></tr></thead>
+        <tbody>${historyRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderNetChart(){
+  const canvas = document.getElementById('net-chart');
+  if(!canvas || !window.Chart) return;
+  const tyt = state.netResults.filter(r=>r.type==='tyt').sort((a,b)=>a.date.localeCompare(b.date));
+  const ayt = state.netResults.filter(r=>r.type==='ayt').sort((a,b)=>a.date.localeCompare(b.date));
+  if(netChart) netChart.destroy();
+  const allDates = [...new Set(state.netResults.map(r=>r.date))].sort();
+  netChart = new Chart(canvas.getContext('2d'), {
+    type:'line',
+    data:{
+      labels: allDates.map(fmtDate),
+      datasets:[
+        { label:'TYT Net', data: allDates.map(d=>{ const f=tyt.find(r=>r.date===d); return f? f.totalNet: null; }),
+          borderColor:'#6B8F71', backgroundColor:'rgba(107,143,113,0.12)', spanGaps:true, tension:0.25 },
+        { label:'AYT Net', data: allDates.map(d=>{ const f=ayt.find(r=>r.date===d); return f? f.totalNet: null; }),
+          borderColor:'#D98E3D', backgroundColor:'rgba(217,142,61,0.12)', spanGaps:true, tension:0.25 }
+      ]
+    },
+    options:{ responsive:true, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true } } }
+  });
+}
+
+// ---------- EKSIK KONULAR ----------
+function renderEksik(){
+  const allSubjNames = Object.values(getAllActiveSubjects()).map(s=>s.name);
+  const options = allSubjNames.map(n=>`<option value="${escapeAttr(n)}">${n}</option>`).join("");
+  const items = [...state.weakTopics].reverse();
+  const listHtml = items.length? items.map(w=>`
+    <div class="yks-log-item wrong">
+      <div class="yks-log-top">
+        <strong style="font-size:13px;">${escapeHtml(w.subject)}${w.topic? ' · '+escapeHtml(w.topic):''}</strong>
+        <span class="yks-log-meta">${fmtDate(w.date)}</span>
+      </div>
+      ${w.note? `<div style="font-size:13px;">${escapeHtml(w.note)}</div>`:''}
+      <div style="margin-top:6px;"><button class="yks-btn ghost small" data-delweak="${w.id}">Kaldır (Konuyu Kapattım)</button></div>
+    </div>
+  `).join("") : `<div class="yks-empty">Henüz eksik konu işaretlemedin. Haftalık programdan "EKSİK İŞARETLE" ile veya buradan manuel ekleyebilirsin.</div>`;
+
+  return `
+    <h1 class="yks-h1">Eksik Konular</h1>
+    <p class="yks-sub">Zayıf olduğunu düşündüğün konuları burada topla, kapattıkça listeden çıkar.</p>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Yeni Eksik Konu Ekle</div>
+      <div class="yks-grid2" style="margin-bottom:10px;">
+        <div>
+          <label class="yks-label">Ders</label>
+          <select id="weak-subject"><option value="">Seç…</option>${options}<option value="__other">Diğer / Yazmak istiyorum</option></select>
+        </div>
+        <div>
+          <label class="yks-label">Konu</label>
+          <input type="text" id="weak-topic" placeholder="Örn: Türev Uygulamaları">
+        </div>
+      </div>
+      <label class="yks-label">Not (opsiyonel)</label>
+      <textarea id="weak-note" placeholder="Neyi karıştırıyorsun, hangi soru tipinde zorlanıyorsun..."></textarea>
+      <div style="margin-top:12px;"><button class="yks-btn sage" id="btn-add-weak">Listeye Ekle</button></div>
+    </div>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Eksik Listem <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted);">${items.length} konu</span></div>
+      ${listHtml}
+    </div>
+  `;
+}
+
+// ---------- SORU KAYITLARI ----------
+function renderSorular(){
+  const allSubjNames = Object.values(getAllActiveSubjects()).map(s=>s.name);
+  const options = allSubjNames.map(n=>`<option value="${escapeAttr(n)}">${n}</option>`).join("");
+
+  const items = [...state.questionLog].reverse();
+
+  const listHtml = items.length? items.map(q=>`
+    <div class="yks-log-item qitem">
+      <div class="yks-log-top">
+        <strong style="font-size:13px;">${escapeHtml(q.subject)}${q.topic? ' · '+escapeHtml(q.topic):''}</strong>
+        <span class="yks-log-meta">${fmtDate(q.date)}</span>
+      </div>
+      ${q.source? `<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">Kaynak: ${escapeHtml(q.source)}</div>`:''}
+      ${q.text? `<div style="font-size:13.5px;white-space:pre-wrap;">${escapeHtml(q.text)}</div>`:''}
+      ${q.hasPhoto? `<div class="yks-photo-slot" data-photoid="${q.id}"><span class="yks-log-meta">Fotoğraf yükleniyor…</span></div>`:''}
+      <div style="margin-top:6px;"><button class="yks-btn ghost small" data-delq="${q.id}">Sil</button></div>
+    </div>
+  `).join("") : `<div class="yks-empty">Henüz kayıt yok. Karşına çıkan önemli bir soruyu aşağıdan ekleyebilirsin.</div>`;
+
+  return `
+    <h1 class="yks-h1">Soru Kayıtları</h1>
+    <p class="yks-sub">Karşına çıkan önemli soruları — yanlış yaptıkların da, beğendiklerin de — kalıcı olarak burada sakla; istersen fotoğrafını da ekle.</p>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Yeni Kayıt Ekle</div>
+      <div class="yks-grid2" style="margin-bottom:10px;">
+        <div>
+          <label class="yks-label">Ders</label>
+          <select id="q-subject"><option value="">Seç…</option>${options}<option value="__other">Diğer</option></select>
+        </div>
+        <div>
+          <label class="yks-label">Konu (opsiyonel)</label>
+          <input type="text" id="q-topic" placeholder="Örn: İntegral">
+        </div>
+      </div>
+      <label class="yks-label">Kaynak (opsiyonel)</label>
+      <input type="text" id="q-source" placeholder="Örn: 345 Matematik Soru Bankası, s.120" style="margin-bottom:10px;">
+      <label class="yks-label">Not (opsiyonel)</label>
+      <textarea id="q-text" placeholder="Soruyla ilgili notunu yaz: neden yanlış yaptın, neden beğendin, nasıl çözülüyor..."></textarea>
+      <div class="yks-photo-input-wrap" style="margin-top:10px;">
+        <label class="yks-label">Soru Fotoğrafı (opsiyonel)</label>
+        <input type="file" id="q-photo" accept="image/*">
+        <div id="q-photo-preview"></div>
+      </div>
+      <div style="margin-top:12px;"><button class="yks-btn" id="btn-add-q">Kaydet</button></div>
+    </div>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Kayıtlarım <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted);">${items.length} kayıt</span></div>
+      ${listHtml}
+    </div>
+  `;
+}
+
+function resizeImageFile(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        const maxDim = 700;
+        if(w > maxDim || h > maxDim){
+          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadVisiblePhotos(){
+  const slots = document.querySelectorAll('[data-photoid]');
+  for(const slot of slots){
+    const id = slot.dataset.photoid;
+    if(photoCache[id]){
+      slot.innerHTML = `<img src="${photoCache[id]}" class="yks-photo-thumb">`;
+      continue;
+    }
+    try{
+      const res = await window.storage.get('qphoto:'+id, false);
+      if(res && res.value){
+        photoCache[id] = res.value;
+        slot.innerHTML = `<img src="${res.value}" class="yks-photo-thumb">`;
+      } else {
+        slot.innerHTML = `<span class="yks-log-meta">Fotoğraf bulunamadı.</span>`;
+      }
+    }catch(e){
+      slot.innerHTML = `<span class="yks-log-meta">Fotoğraf yüklenemedi.</span>`;
+    }
+  }
+}
+
+// ---------- KİTAPLARIM ----------
+function renderKitaplar(){
+  if(!newBookId) newBookId = uid();
+  const subjNames = Object.values(getAllActiveSubjects()).map(s=>s.name);
+  const subjOptions = subjNames.map(n=>`<option value="${escapeAttr(n)}">${n}</option>`).join('');
+
+  const books = [...state.books].reverse();
+  const listHtml = books.length? books.map(b=>{
+    const total = b.topics.length;
+    const done = b.topics.filter(t=>t.done).length;
+    const pct = total? Math.round(done/total*100):0;
+    const topicsHtml = b.topics.length ? b.topics.map(t=>`
+      <div class="yks-topic-row ${t.done?'done':''}">
+        <input type="checkbox" data-booktopic="${b.id}:${t.id}" ${t.done?'checked':''}>
+        <label>${escapeHtml(t.name)}</label>
+        <button class="yks-mark-weak" data-deltopic="${b.id}:${t.id}" title="Konuyu listeden sil">SİL</button>
+      </div>
+    `).join('') : `<div class="yks-review-list">Henüz konu/bölüm eklenmedi.</div>`;
+
+    return `<div class="yks-card">
+      <div class="yks-card-title">
+        <span>${escapeHtml(b.title)} ${b.subject? `<span class="yks-pill book">${escapeHtml(b.subject)}</span>`:''}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--sage-dark);">%${pct}</span>
+      </div>
+      ${b.kaynak? `<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">${escapeHtml(b.kaynak)}</div>`:''}
+      <div style="height:7px;background:var(--paper-2);border-radius:100px;overflow:hidden;margin-bottom:14px;">
+        <div style="height:100%;width:${pct}%;background:var(--sage);"></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        ${b.hasPdf? `
+          <button class="yks-btn small sage" data-viewpdf="bookpdf:${b.id}">PDF'i Görüntüle</button>
+          <button class="yks-btn ghost small" data-delbookpdf="${b.id}">PDF'i Kaldır</button>
+        ` : `
+          <label class="yks-btn small amber" style="cursor:pointer;">
+            PDF Yükle
+            <input type="file" accept="application/pdf" data-bookpdfupload="${b.id}" style="display:none;">
+          </label>
+          <span class="yks-log-meta" data-pdfstatus="${b.id}"></span>
+        `}
+      </div>
+
+      <div class="yks-subj-block">${topicsHtml}</div>
+      <div class="yks-grid2" style="margin-top:10px;">
+        <input type="text" placeholder="Yeni konu/bölüm ekle" data-newtopic="${b.id}">
+        <button class="yks-btn small" data-addtopic="${b.id}">Konu Ekle</button>
+      </div>
+      <div style="margin-top:12px;"><button class="yks-btn ghost small" data-delbook="${b.id}">Kitabı Sil</button></div>
+    </div>`;
+  }).join('') : `<div class="yks-empty">Henüz kitap eklemedin. Aşağıdan ilk kitabını ekleyebilirsin.</div>`;
+
+  return `
+    <h1 class="yks-h1">Kitaplarım</h1>
+    <p class="yks-sub">Çözdüğün soru bankalarını / kitapları ekle, dilediğin zaman PDF'ini yükle ve tamamladığın konuları işaretle.</p>
+
+    <div class="yks-card">
+      <div class="yks-card-title">Yeni Kitap Ekle</div>
+      <div class="yks-grid2" style="margin-bottom:10px;">
+        <div>
+          <label class="yks-label">Kitap Adı</label>
+          <input type="text" id="book-title" placeholder="Örn: 345 Matematik Soru Bankası">
+        </div>
+        <div>
+          <label class="yks-label">Ders (opsiyonel)</label>
+          <select id="book-subject"><option value="">Seç…</option>${subjOptions}<option value="__other">Diğer</option></select>
+        </div>
+      </div>
+      <label class="yks-label">Yayınevi / Kaynak (opsiyonel)</label>
+      <input type="text" id="book-kaynak" placeholder="Örn: Karekök Yayınları" style="margin-bottom:10px;">
+      <label class="yks-label">Konu / Bölüm Listesi (opsiyonel, her satıra bir tane)</label>
+      <textarea id="book-topics" placeholder="Örn:&#10;Bölüm 1 - Temel Kavramlar&#10;Bölüm 2 - Sayı Basamakları"></textarea>
+      <div class="yks-photo-input-wrap" style="margin-top:10px;">
+        <label class="yks-label">PDF Ekle (opsiyonel, ~5 MB'a kadar)</label>
+        <input type="file" id="book-pdf" accept="application/pdf">
+        <div id="book-pdf-status" class="yks-log-meta" style="margin-top:6px;"></div>
+      </div>
+      <div style="margin-top:12px;"><button class="yks-btn amber" id="btn-add-book">Kitabı Ekle</button></div>
+    </div>
+
+    ${listHtml}
+  `;
+}
+
+// ---------- ÇIKMIŞ SORULAR ----------
+function renderCikmis(){
+  const allSubjects = getAllActiveSubjects();
+  const subjKeys = Object.keys(allSubjects);
+  if(!examSubjectFilter || !allSubjects[examSubjectFilter]) examSubjectFilter = subjKeys[0];
+
+  const chips = `<div class="yks-filter-bar">
+    ${subjKeys.map(k=>`<div class="yks-chip ${examSubjectFilter===k?'active':''}" data-examsubj="${k}">${allSubjects[k].name}</div>`).join('')}
+  </div>`;
+
+  const rows = EXAM_YEARS.map(year=>{
+    const rec = (state.pastExams[examSubjectFilter] && state.pastExams[examSubjectFilter][year]) || { done:false, note:"", hasPdf:false };
+    const key = `examqpdf:${examSubjectFilter}:${year}`;
+    const officialLink = YEAR_OSYM_LINKS[year] || "";
+    return `<tr data-examrow="${examSubjectFilter}:${year}">
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--ink);white-space:nowrap;">
+        <input type="checkbox" data-examdone="${examSubjectFilter}:${year}" ${rec.done?'checked':''} style="margin-right:6px;">${year}
+      </td>
+      <td><input type="text" data-examnote="${examSubjectFilter}:${year}" value="${escapeAttr(rec.note)}" placeholder="Not (net, zorluk...)"></td>
+      <td style="white-space:nowrap;">
+        ${officialLink? `<a class="yks-btn small sage" href="${escapeAttr(officialLink)}" target="_blank" rel="noopener">ÖSYM'de Aç</a>` : ''}
+      </td>
+      <td style="white-space:nowrap;">
+        ${rec.hasPdf? `
+          <button class="yks-btn small sage" data-viewpdf="${key}">Gör</button>
+          <button class="yks-btn ghost small" data-delexampdf="${examSubjectFilter}:${year}">Kaldır</button>
+        ` : `
+          <label class="yks-btn small amber" style="cursor:pointer;">
+            PDF Yükle
+            <input type="file" accept="application/pdf" data-exampdfupload="${examSubjectFilter}:${year}" style="display:none;">
+          </label>
+        `}
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <h1 class="yks-h1">Çıkmış Sorular</h1>
+    <p class="yks-sub">Bir ders seç, ${EXAM_YEARS[0]}'dan başlayarak önceki yılların sorularını hangilerini çözdüğünü, notlarını ve varsa PDF'ini burada takip et. "ÖSYM'de Aç" düğmesi doğrudan ÖSYM'nin resmi soru kitapçığı sayfasına götürür — soruların telif hakkı ÖSYM'ye ait olduğu için sorular burada gösterilmiyor, sadece resmi kaynağa yönlendiriliyor.</p>
+    ${chips}
+    <div class="yks-card">
+      <div class="yks-card-title">${allSubjects[examSubjectFilter]? allSubjects[examSubjectFilter].name : ''}</div>
+      <table class="yks-table">
+        <thead><tr><th>Yıl</th><th>Not</th><th>Resmi Kaynak</th><th>PDF</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="yks-card" style="margin-top:18px;">
+      <div class="yks-card-title">MEB Örnek Soruları</div>
+      <p class="yks-sub" style="margin-top:0;">Millî Eğitim Bakanlığı, TYT/AYT/YDT için her ay yeni "çalışma soruları" ve örnek soru kitapçıkları yayımlıyor. Sorular burada da telif nedeniyle gösterilmiyor; aşağıdaki bağlantılar doğrudan MEB'in kendi güncellediği resmi sayfalara gidiyor, yani MEB yeni bir soru kitapçığı yayımladığında bu sayfalarda otomatik olarak görünecek — ayrıca bir güncelleme yapmana gerek yok.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
+        <a class="yks-btn sage" href="https://odsgm.meb.gov.tr/www/ornek-sorular/icerik/1011" target="_blank" rel="noopener">MEB Örnek Sorular Sayfası</a>
+        <a class="yks-btn sage" href="https://odsgm.meb.gov.tr/www/ornek-soru-kitapciklari/kategori/151" target="_blank" rel="noopener">MEB Örnek Soru Kitapçıkları Arşivi</a>
+      </div>
+    </div>
+  `;
+}
+
+// ---------- ÖRNEK SORULAR (orijinal, AI üretimi pratik sorular) ----------
+function renderOrnekSorular(){
+  const allSubjects = getAllActiveSubjects();
+  const subjKeys = Object.keys(allSubjects);
+  if(!ornekSubjectFilter || !allSubjects[ornekSubjectFilter]) ornekSubjectFilter = subjKeys[0];
+
+  const chips = `<div class="yks-filter-bar">
+    ${subjKeys.map(k=>`<div class="yks-chip ${ornekSubjectFilter===k?'active':''}" data-ornekssubj="${k}">${allSubjects[k].name}</div>`).join('')}
+  </div>`;
+
+  return `
+    <h1 class="yks-h1">Örnek Sorular</h1>
+    <p class="yks-sub">Bir ders seç, bir konu yaz — o konuyu içeren orijinal alıştırma soruları senin için üretilsin. <strong>Not:</strong> bunlar gerçek ÖSYM sınav sorusu değildir, telif nedeniyle gerçek sorular gösterilemiyor; bunun yerine aynı tarzda, sana özel üretilmiş pratik sorulardır.</p>
+    ${chips}
+    <div class="yks-card">
+      <div class="yks-card-title">${allSubjects[ornekSubjectFilter]? allSubjects[ornekSubjectFilter].name : ''}</div>
+      <div class="yks-grid2" style="margin-bottom:10px;">
+        <input type="text" id="practice-topic" placeholder="Örn: Türev Uygulamaları" value="${escapeAttr(practiceTopic)}">
+        <button class="yks-btn amber" id="btn-practice-search" ${practiceLoading?'disabled':''}>${practiceLoading? 'Üretiliyor…' : 'Soru Üret'}</button>
+      </div>
+      <div id="practice-results">${renderPracticeResults()}</div>
+    </div>
+  `;
+}
+
+function renderPracticeResults(){
+  if(practiceLoading) return `<div class="yks-empty">Sorular hazırlanıyor…</div>`;
+  if(practiceError) return `<div class="yks-empty">${escapeHtml(practiceError)}</div>`;
+  if(!practiceResults.length) return `<div class="yks-empty">Bir konu yaz ve "Soru Üret"e bas.</div>`;
+  return practiceResults.map((q,i)=>`
+    <div class="yks-log-item qitem" style="margin-bottom:12px;">
+      <div class="yks-log-top">
+        <strong style="font-size:13px;">Soru ${i+1}</strong>
+        <span class="yks-pill book">${escapeHtml(q.difficulty||'orta')} · Orijinal Alıştırma</span>
+      </div>
+      <div style="font-size:13.5px;margin-bottom:8px;white-space:pre-wrap;">${escapeHtml(q.question||'')}</div>
+      <div style="font-size:13px;line-height:1.9;">
+        ${(q.options||[]).map(opt=>`<div>${escapeHtml(opt)}</div>`).join('')}
+      </div>
+      <button class="yks-btn ghost small" data-togglesol="${i}" style="margin-top:8px;">Cevabı Göster</button>
+      <div class="yks-review-list" data-solbox="${i}" style="display:none;margin-top:8px;">
+        <strong>Doğru cevap: ${escapeHtml(q.correct||'-')}</strong><br>
+        ${escapeHtml(q.explanation||'')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function safeParseJsonArray(text){
+  try{ return JSON.parse(text); }catch(e){}
+  const match = text.match(/\[[\s\S]*\]/);
+  if(match){ try{ return JSON.parse(match[0]); }catch(e){} }
+  return null;
+}
+
+async function generatePracticeQuestions(subjectName, topic){
+  const QUESTION_COUNT = 10;
+  const prompt = `Sen bir YKS (Türkiye üniversite giriş sınavı) soru hazırlayıcısısın. "${subjectName}" dersinden, özellikle "${topic}" konusunu kapsayan, TYT/AYT tarzında TAM OLARAK ${QUESTION_COUNT} adet ORİJİNAL çoktan seçmeli alıştırma sorusu hazırla. Bunlar gerçek ÖSYM sınav sorusu OLMAMALI, senin ürettiğin özgün sorular olmalı. Zorluk seviyelerini çeşitlendir (bazıları kolay, bazıları orta, bazıları zor). Her soru 5 şıklı olsun (A-E). Yalnızca aşağıdaki JSON formatında, başka hiçbir açıklama, yorum ya da markdown olmadan, sadece geçerli JSON dizisi ile cevap ver. Dizide tam olarak ${QUESTION_COUNT} eleman olmalı:
+[{"question":"soru metni","options":["A) ...","B) ...","C) ...","D) ...","E) ..."],"correct":"B","explanation":"kısa çözüm açıklaması","difficulty":"kolay"}]`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  const data = await response.json();
+  const text = (data.content || []).map(c => c.text || "").join("");
+  const parsed = safeParseJsonArray(text);
+  if(!parsed || !parsed.length) throw new Error("parse_error");
+  return parsed;
+}
+
+
+// ---------- HELPERS ----------
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+// ---------- EVENT HANDLERS ----------
+function attachHandlers(){
+  document.querySelectorAll('.yks-tab').forEach(t=>{
+    t.onclick = ()=>{ activeTab = t.dataset.tab; render(); };
+  });
+
+  if(activeTab==='dashboard'){
+    const b = document.getElementById('btn-save-profile');
+    if(b) b.onclick = async ()=>{
+      state.profile.name = document.getElementById('inp-name').value.trim() || state.profile.name;
+      state.profile.startDate = document.getElementById('inp-start').value || todayStr();
+      state.profile.examDate = document.getElementById('inp-exam').value || state.profile.examDate;
+      state.profile.track = document.getElementById('inp-track').value;
+      await saveState();
+      toast("Profil kaydedildi.");
+      render();
+    };
+    const so = document.getElementById('btn-signout');
+    if(so) so.onclick = async ()=>{
+      try{ await fbAuth.signOut(); }catch(e){}
+    };
+  }
+
+  if(activeTab==='tyt_program' || activeTab==='ayt_program'){
+    document.querySelectorAll('[data-weektoggle]').forEach(el=>{
+      el.onclick = ()=>{
+        const wkey = el.dataset.weektoggle;
+        const wnum = parseInt(wkey.split(':')[1]);
+        openWeeks[wkey] = !(openWeeks[wkey] === undefined ? (wnum == currentWeekIndex()) : openWeeks[wkey]);
+        render();
+      };
+    });
+    document.querySelectorAll('[data-topickey]').forEach(el=>{
+      el.onchange = async ()=>{
+        state.checks[el.dataset.topickey] = el.checked;
+        await saveState();
+        render();
+      };
+    });
+    document.querySelectorAll('[data-weak-subj]').forEach(el=>{
+      el.onclick = async ()=>{
+        state.weakTopics.push({
+          id: uid(), date: todayStr(),
+          subject: el.dataset.weakSubj, topic: el.dataset.weakTopic, note:""
+        });
+        await saveState();
+        toast("Eksik konulara eklendi.");
+      };
+    });
+    document.querySelectorAll('[data-progsubj]').forEach(el=>{
+      el.onclick = ()=>{
+        const [grp, key] = el.dataset.progsubj.split(':');
+        if(grp==='tyt') tytSubjectFilter = key; else aytSubjectFilter = key;
+        render();
+      };
+    });
+    document.querySelectorAll('[data-saveagenda]').forEach(el=>{
+      el.onclick = async ()=>{
+        const w = el.dataset.saveagenda;
+        const days = [];
+        for(let i=0;i<7;i++){
+          const ta = document.querySelector(`[data-agendaday="${w}:${i}"]`);
+          days.push(ta ? ta.value : '');
+        }
+        state.weekAgenda[w] = { days };
+        await saveState();
+        toast("Ajanda kaydedildi.");
+      };
+    });
+  }
+
+  if(activeTab==='net'){
+    document.querySelectorAll('[data-nettype]').forEach(el=>{
+      el.onclick = ()=>{ netFormType = el.dataset.nettype; render(); };
+    });
+    const saveBtn = document.getElementById('btn-save-net');
+    if(saveBtn) saveBtn.onclick = async ()=>{
+      const subjList = getNetSubjectList();
+      const subjResults = {};
+      let totalNet = 0;
+      let anyInput = false;
+      subjList.forEach(s=>{
+        const dEl = document.getElementById('d-'+s.key);
+        const yEl = document.getElementById('y-'+s.key);
+        const d = parseInt(dEl.value)||0;
+        const y = parseInt(yEl.value)||0;
+        if(dEl.value || yEl.value) anyInput = true;
+        const net = d - y/4;
+        subjResults[s.key] = { name:s.name, d, y, net };
+        totalNet += net;
+      });
+      if(!anyInput){ toast("Lütfen en az bir derse doğru/yanlış gir."); return; }
+      state.netResults.push({
+        id: uid(),
+        date: document.getElementById('net-date').value || todayStr(),
+        name: document.getElementById('net-name').value || "",
+        type: netFormType,
+        subjects: subjResults,
+        totalNet: Math.round(totalNet*100)/100
+      });
+      await saveState();
+      toast("Deneme sonucu kaydedildi.");
+      render();
+    };
+    document.querySelectorAll('[data-delnet]').forEach(el=>{
+      el.onclick = async ()=>{
+        state.netResults = state.netResults.filter(r=>r.id!==el.dataset.delnet);
+        await saveState();
+        render();
+      };
+    });
+  }
+
+  if(activeTab==='eksik'){
+    document.querySelectorAll('[data-delweak]').forEach(el=>{
+      el.onclick = async ()=>{
+        state.weakTopics = state.weakTopics.filter(w=>w.id!==el.dataset.delweak);
+        await saveState();
+        render();
+      };
+    });
+    const addBtn = document.getElementById('btn-add-weak');
+    if(addBtn) addBtn.onclick = async ()=>{
+      const sel = document.getElementById('weak-subject');
+      let subject = sel.value;
+      if(subject==='__other') subject = prompt("Ders adı:") || "Diğer";
+      const topic = document.getElementById('weak-topic').value.trim();
+      const note = document.getElementById('weak-note').value.trim();
+      if(!subject){ toast("Lütfen bir ders seç."); return; }
+      state.weakTopics.push({ id: uid(), date: todayStr(), subject, topic, note });
+      await saveState();
+      toast("Eksik konu eklendi.");
+      render();
+    };
+  }
+
+  if(activeTab==='sorular'){
+    document.querySelectorAll('[data-delq]').forEach(el=>{
+      el.onclick = async ()=>{
+        const qid = el.dataset.delq;
+        const q = state.questionLog.find(x=>x.id===qid);
+        state.questionLog = state.questionLog.filter(q=>q.id!==qid);
+        await saveState();
+        if(q && q.hasPhoto){
+          delete photoCache[qid];
+          try{ await window.storage.delete('qphoto:'+qid, false); }catch(e){}
+        }
+        render();
+      };
+    });
+    const photoInput = document.getElementById('q-photo');
+    if(photoInput) photoInput.onchange = async ()=>{
+      const file = photoInput.files[0];
+      if(!file) return;
+      const preview = document.getElementById('q-photo-preview');
+      preview.innerHTML = `<span class="yks-log-meta">Fotoğraf işleniyor…</span>`;
+      try{
+        const dataUrl = await resizeImageFile(file);
+        pendingPhoto = { dataUrl };
+        preview.innerHTML = `<img src="${dataUrl}" class="yks-photo-thumb">`;
+      }catch(e){
+        pendingPhoto = null;
+        preview.innerHTML = `<span class="yks-log-meta">Fotoğraf okunamadı, tekrar dene.</span>`;
+      }
+    };
+    const addBtn = document.getElementById('btn-add-q');
+    if(addBtn) addBtn.onclick = async ()=>{
+      const sel = document.getElementById('q-subject');
+      let subject = sel.value;
+      if(subject==='__other') subject = prompt("Ders adı:") || "Diğer";
+      const topic = document.getElementById('q-topic').value.trim();
+      const source = document.getElementById('q-source').value.trim();
+      const text = document.getElementById('q-text').value.trim();
+      if(!subject || (!text && !pendingPhoto)){ toast("Lütfen ders seç ve not yaz veya fotoğraf ekle."); return; }
+      const id = uid();
+      const hasPhoto = !!pendingPhoto;
+      state.questionLog.push({ id, date: todayStr(), subject, topic, source, text, hasPhoto });
+      if(hasPhoto){
+        photoCache[id] = pendingPhoto.dataUrl;
+        try{ await window.storage.set('qphoto:'+id, pendingPhoto.dataUrl, false); }catch(e){ toast("Fotoğraf kaydedilemedi."); }
+      }
+      pendingPhoto = null;
+      await saveState();
+      toast("Kayıt eklendi.");
+      render();
+    };
+  }
+
+  if(activeTab==='kitaplar'){
+    document.querySelectorAll('[data-booktopic]').forEach(el=>{
+      el.onchange = async ()=>{
+        const [bid, tid] = el.dataset.booktopic.split(':');
+        const book = state.books.find(b=>b.id===bid);
+        if(book){
+          const topic = book.topics.find(t=>t.id===tid);
+          if(topic) topic.done = el.checked;
+          await saveState();
+        }
+        render();
+      };
+    });
+    document.querySelectorAll('[data-deltopic]').forEach(el=>{
+      el.onclick = async ()=>{
+        const [bid, tid] = el.dataset.deltopic.split(':');
+        const book = state.books.find(b=>b.id===bid);
+        if(book){ book.topics = book.topics.filter(t=>t.id!==tid); await saveState(); }
+        render();
+      };
+    });
+    document.querySelectorAll('[data-addtopic]').forEach(el=>{
+      el.onclick = async ()=>{
+        const bid = el.dataset.addtopic;
+        const input = document.querySelector(`[data-newtopic="${bid}"]`);
+        const val = input.value.trim();
+        if(!val) return;
+        const book = state.books.find(b=>b.id===bid);
+        if(book){ book.topics.push({ id: uid(), name: val, done:false }); await saveState(); }
+        render();
+      };
+    });
+    document.querySelectorAll('[data-delbook]').forEach(el=>{
+      el.onclick = async ()=>{
+        const bid = el.dataset.delbook;
+        const book = state.books.find(b=>b.id===bid);
+        state.books = state.books.filter(b=>b.id!==bid);
+        await saveState();
+        if(book && book.hasPdf) await deleteStoredPdf('bookpdf:'+bid);
+        render();
+      };
+    });
+    document.querySelectorAll('[data-bookpdfupload]').forEach(el=>{
+      el.onchange = async ()=>{
+        const bid = el.dataset.bookpdfupload;
+        const file = el.files[0];
+        if(!file) return;
+        const statusEl = document.querySelector(`[data-pdfstatus="${bid}"]`);
+        if(statusEl) statusEl.textContent = "Yükleniyor…";
+        const dataUrl = await uploadPdfToKey(file, 'bookpdf:'+bid);
+        if(dataUrl){
+          const book = state.books.find(b=>b.id===bid);
+          if(book) book.hasPdf = true;
+          await saveState();
+          toast("PDF yüklendi.");
+          render();
+        } else if(statusEl){
+          statusEl.textContent = "";
+        }
+      };
+    });
+    document.querySelectorAll('[data-delbookpdf]').forEach(el=>{
+      el.onclick = async ()=>{
+        const bid = el.dataset.delbookpdf;
+        const book = state.books.find(b=>b.id===bid);
+        if(book) book.hasPdf = false;
+        await saveState();
+        await deleteStoredPdf('bookpdf:'+bid);
+        render();
+      };
+    });
+    document.querySelectorAll('[data-viewpdf]').forEach(el=>{
+      el.onclick = ()=> openStoredPdf(el.dataset.viewpdf);
+    });
+    const bookPdfInput = document.getElementById('book-pdf');
+    if(bookPdfInput) bookPdfInput.onchange = async ()=>{
+      const file = bookPdfInput.files[0];
+      if(!file) return;
+      const statusEl = document.getElementById('book-pdf-status');
+      statusEl.textContent = "Yükleniyor…";
+      const dataUrl = await uploadPdfToKey(file, 'bookpdf:'+newBookId);
+      if(dataUrl){
+        pendingBookHasPdf = true;
+        statusEl.textContent = "✓ PDF hazır, kitabı ekleyince kaydedilecek.";
+      } else {
+        statusEl.textContent = "";
+      }
+    };
+    const addBookBtn = document.getElementById('btn-add-book');
+    if(addBookBtn) addBookBtn.onclick = async ()=>{
+      const title = document.getElementById('book-title').value.trim();
+      if(!title){ toast("Lütfen kitap adını yaz."); return; }
+      const selEl = document.getElementById('book-subject');
+      let subject = selEl.value;
+      if(subject==='__other') subject = prompt("Ders adı:") || "";
+      const kaynak = document.getElementById('book-kaynak').value.trim();
+      const topicsRaw = document.getElementById('book-topics').value;
+      const topics = topicsRaw.split('\n').map(t=>t.trim()).filter(Boolean).map(name=>({ id: uid(), name, done:false }));
+      state.books.push({
+        id: newBookId, title, subject, kaynak, date: todayStr(),
+        topics, hasPdf: pendingBookHasPdf
+      });
+      await saveState();
+      newBookId = uid();
+      pendingBookHasPdf = false;
+      toast("Kitap eklendi.");
+      render();
+    };
+  }
+
+  if(activeTab==='cikmis'){
+    document.querySelectorAll('[data-examsubj]').forEach(el=>{
+      el.onclick = ()=>{
+        examSubjectFilter = el.dataset.examsubj;
+        practiceResults = []; practiceTopic = ""; practiceError = "";
+        render();
+      };
+    });
+    function getExamRec(subjKey, year){
+      if(!state.pastExams[subjKey]) state.pastExams[subjKey] = {};
+      if(!state.pastExams[subjKey][year]) state.pastExams[subjKey][year] = { done:false, note:"", hasPdf:false, link:"" };
+      return state.pastExams[subjKey][year];
+    }
+    document.querySelectorAll('[data-examdone]').forEach(el=>{
+      el.onchange = async ()=>{
+        const [subjKey, year] = el.dataset.examdone.split(':');
+        getExamRec(subjKey, year).done = el.checked;
+        await saveState();
+      };
+    });
+    document.querySelectorAll('[data-examnote]').forEach(el=>{
+      el.onchange = async ()=>{
+        const [subjKey, year] = el.dataset.examnote.split(':');
+        getExamRec(subjKey, year).note = el.value;
+        await saveState();
+      };
+    });
+    document.querySelectorAll('[data-viewpdf]').forEach(el=>{
+      el.onclick = ()=> openStoredPdf(el.dataset.viewpdf);
+    });
+    document.querySelectorAll('[data-exampdfupload]').forEach(el=>{
+      el.onchange = async ()=>{
+        const [subjKey, year] = el.dataset.exampdfupload.split(':');
+        const file = el.files[0];
+        if(!file) return;
+        const key = `examqpdf:${subjKey}:${year}`;
+        const dataUrl = await uploadPdfToKey(file, key);
+        if(dataUrl){
+          getExamRec(subjKey, year).hasPdf = true;
+          await saveState();
+          toast("PDF yüklendi.");
+          render();
+        }
+      };
+    });
+    document.querySelectorAll('[data-delexampdf]').forEach(el=>{
+      el.onclick = async ()=>{
+        const [subjKey, year] = el.dataset.delexampdf.split(':');
+        getExamRec(subjKey, year).hasPdf = false;
+        await saveState();
+        await deleteStoredPdf(`examqpdf:${subjKey}:${year}`);
+        render();
+      };
+    });
+  }
+
+  if(activeTab==='ornek'){
+    document.querySelectorAll('[data-ornekssubj]').forEach(el=>{
+      el.onclick = ()=>{
+        ornekSubjectFilter = el.dataset.ornekssubj;
+        practiceResults = []; practiceTopic = ""; practiceError = "";
+        render();
+      };
+    });
+    document.querySelectorAll('[data-togglesol]').forEach(el=>{
+      el.onclick = ()=>{
+        const box = document.querySelector(`[data-solbox="${el.dataset.togglesol}"]`);
+        if(box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      };
+    });
+    const practiceBtn = document.getElementById('btn-practice-search');
+    if(practiceBtn) practiceBtn.onclick = async ()=>{
+      const input = document.getElementById('practice-topic');
+      const topic = input.value.trim();
+      if(!topic){ toast("Lütfen bir konu yaz."); return; }
+      practiceTopic = topic;
+      practiceLoading = true;
+      practiceError = "";
+      render();
+      const subjName = getAllActiveSubjects()[ornekSubjectFilter]?.name || "";
+      try{
+        practiceResults = await generatePracticeQuestions(subjName, topic);
+      }catch(e){
+        practiceResults = [];
+        practiceError = "Sorular üretilemedi, tekrar dene.";
+      }
+      practiceLoading = false;
+      render();
+    };
+  }
+}
+
+// ---------- FİREBASE: GOOGLE İLE GİRİŞ + BULUT SENKRONİZASYONU ----------
+// Aşağıdaki değerleri kendi ücretsiz Firebase projenden alıp buraya yapıştırman gerekiyor.
+// Nasıl alınacağı için sohbetteki kurulum adımlarına bak.
+const firebaseConfig = {
+  apiKey: "AIzaSyAWZTECBXHvu5tXKfmhLsHP3l_U3owFT7s",
+  authDomain: "yks-2028.firebaseapp.com",
+  projectId: "yks-2028",
+  storageBucket: "yks-2028.firebasestorage.app",
+  messagingSenderId: "832322255327",
+  appId: "1:832322255327:web:d2c5aedb1da35aa2626c6a"
+};
+firebase.initializeApp(firebaseConfig);
+const fbAuth = firebase.auth();
+const fbFirestore = firebase.firestore();
+let currentUser = null;
+const FIREBASE_CONFIGURED = !String(firebaseConfig.apiKey||'').includes('BURAYA');
+
+// Foto ve PDF'ler büyük olabildiği için (Firestore doküman limiti ~1MB) bunlar
+// bulutta değil, tarayıcının kendi IndexedDB'sinde (cihaza özel) saklanır.
+// Bu sayede kart/ücretli plan gerekmeden her şey Spark (ücretsiz) planda çalışır.
+function isLocalOnlyKey(key){
+  return key.indexOf('qphoto:') === 0 || key.indexOf('examqpdf:') === 0;
+}
+
+function openLocalDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open('yks_local_files', 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore('files'); };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function localGet(key){
+  const db = await openLocalDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('files','readonly');
+    const req = tx.objectStore('files').get(key);
+    req.onsuccess = ()=>resolve(req.result===undefined? null : req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function localSet(key, value){
+  const db = await openLocalDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('files','readwrite');
+    tx.objectStore('files').put(value, key);
+    tx.oncomplete = ()=>resolve(true);
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+async function localDelete(key){
+  const db = await openLocalDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('files','readwrite');
+    tx.objectStore('files').delete(key);
+    tx.oncomplete = ()=>resolve(true);
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+
+// window.storage ile aynı arayüzü taklit eden katman.
+// Küçük/metinsel veriler (profil, checkler, notlar...) Firestore'a gider ve her cihazdan senkron olur.
+// qphoto:/examqpdf: ile başlayan büyük foto/PDF verileri ise sadece bu cihazın tarayıcısında kalır.
+function makeCloudStorage(uid){
+  const coll = fbFirestore.collection('users').doc(uid).collection('kv');
+  return {
+    async get(key){
+      if(isLocalOnlyKey(key)){
+        try{
+          const value = await localGet(key);
+          if(value == null) return null;
+          return { key, value, shared:false };
+        }catch(e){ return null; }
+      }
+      try{
+        const snap = await coll.doc(encodeURIComponent(key)).get();
+        if(!snap.exists) return null;
+        const data = snap.data();
+        return { key, value: data && data.v, shared:false };
+      }catch(e){ return null; }
+    },
+    async set(key, value){
+      if(isLocalOnlyKey(key)){
+        try{ await localSet(key, value); return { key, value, shared:false }; }
+        catch(e){ return null; }
+      }
+      try{
+        await coll.doc(encodeURIComponent(key)).set({ v: String(value) });
+        return { key, value, shared:false };
+      }catch(e){ return null; }
+    },
+    async delete(key){
+      if(isLocalOnlyKey(key)){
+        try{ await localDelete(key); return { key, deleted:true, shared:false }; }
+        catch(e){ return null; }
+      }
+      try{
+        await coll.doc(encodeURIComponent(key)).delete();
+        return { key, deleted:true, shared:false };
+      }catch(e){ return null; }
+    },
+    async list(prefix){
+      try{
+        const snap = await coll.get();
+        let keys = snap.docs.map(d=>decodeURIComponent(d.id));
+        if(prefix) keys = keys.filter(k=>k.startsWith(prefix));
+        return { keys, prefix, shared:false };
+      }catch(e){ return null; }
+    }
+  };
+}
+
+function showSignInScreen(errorMsg){
+  let overlay = document.getElementById('signin-overlay');
+  if(overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.className = 'yks-modal-overlay';
+  overlay.id = 'signin-overlay';
+  if(!FIREBASE_CONFIGURED){
+    overlay.innerHTML = `
+      <div class="yks-modal-box">
+        <div class="yks-card-title" style="margin-bottom:4px;">Kurulum tamamlanmadı</div>
+        <p class="yks-sub" style="margin-bottom:0;">Google ile giriş ve bulut senkronizasyonu için önce dosyanın başındaki <code>firebaseConfig</code> alanına kendi Firebase projenin bilgilerini yapıştırman gerekiyor. Kurulum adımları için sohbete bak.</p>
+      </div>`;
+    document.body.appendChild(overlay);
+    return;
+  }
+  overlay.innerHTML = `
+    <div class="yks-modal-box">
+      <div class="yks-card-title" style="margin-bottom:4px;">YKS 2028 Takip</div>
+      <p class="yks-sub" style="margin-bottom:16px;">Verilerine hangi cihazdan girersen gir ulaşabilmen için Google hesabınla giriş yap.</p>
+      <button class="yks-btn amber" id="btn-google-signin">Google ile Giriş Yap</button>
+      ${errorMsg? `<div style="color:var(--clay);margin-top:12px;font-size:13px;">${escapeHtml(errorMsg)}</div>` : ''}
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('btn-google-signin').onclick = async ()=>{
+    try{
+      await fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    }catch(e){
+      showSignInScreen("Giriş başarısız: " + (e.message || e));
+    }
+  };
+}
+
+function showNameModal(){
+  const overlay = document.createElement('div');
+  overlay.className = 'yks-modal-overlay';
+  overlay.innerHTML = `
+    <div class="yks-modal-box">
+      <div class="yks-card-title" style="margin-bottom:4px;">Hoş geldin! 👋</div>
+      <p class="yks-sub" style="margin-bottom:14px;">Sana nasıl hitap edelim?</p>
+      <input type="text" id="modal-name-input" placeholder="Adın" style="margin-bottom:14px;">
+      <button class="yks-btn amber" id="modal-name-btn">Başla</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  const input = document.getElementById('modal-name-input');
+  input.focus();
+  const submit = async ()=>{
+    const val = input.value.trim();
+    state.profile.name = val || "Öğrenci";
+    await saveState();
+    overlay.remove();
+    render();
+  };
+  document.getElementById('modal-name-btn').onclick = submit;
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+}
+
+// ---------- INIT ----------
+fbAuth.onAuthStateChanged(async (user)=>{
+  if(user){
+    currentUser = user;
+    window.storage = makeCloudStorage(user.uid);
+    const overlay = document.getElementById('signin-overlay');
+    if(overlay) overlay.remove();
+    await loadState();
+    render();
+    if(!state.profile.name){ showNameModal(); }
+  } else {
+    currentUser = null;
+    showSignInScreen();
+  }
+});
+
+})();
+</script>
+</body>
+</html>
