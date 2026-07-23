@@ -565,6 +565,8 @@ let state = {
 let netChart = null;
 let openWeeks = {};
 let netFormType = "tyt";
+let editingNetId = null;
+let expandedNetIds = new Set();
 let saving = false;
 let tytSubjectFilter = null;
 let aytSubjectFilter = null;
@@ -820,8 +822,8 @@ function renderDashboard(){
     <div class="yks-stat-row">
       <div class="yks-stat"><div class="num">%${prog.pct}</div><div class="lbl">KONU TAMAMLAMA</div></div>
       <div class="yks-stat"><div class="num">${prog.done}/${prog.total}</div><div class="lbl">BİTEN KONU</div></div>
-      <div class="yks-stat"><div class="num">${lastTyt? lastTyt.totalNet.toFixed(2):'—'}</div><div class="lbl">SON TYT NETİ</div></div>
-      <div class="yks-stat"><div class="num">${lastAyt? lastAyt.totalNet.toFixed(2):'—'}</div><div class="lbl">SON AYT NETİ</div></div>
+      <div class="yks-stat"><div class="num">${lastTyt? lastTyt.totalNet.toFixed(2):'—'}</div><div class="lbl">SON TYT NETİ${lastTyt && lastTyt.totalQuestions? ` (%${(lastTyt.totalNet/lastTyt.totalQuestions*100).toFixed(1)})`:''}</div></div>
+      <div class="yks-stat"><div class="num">${lastAyt? lastAyt.totalNet.toFixed(2):'—'}</div><div class="lbl">SON AYT NETİ${lastAyt && lastAyt.totalQuestions? ` (%${(lastAyt.totalNet/lastAyt.totalQuestions*100).toFixed(1)})`:''}</div></div>
       <div class="yks-stat"><div class="num">${state.weakTopics.length}</div><div class="lbl">EKSİK KONU</div></div>
     </div>
 
@@ -1025,31 +1027,70 @@ function getNetSubjectList(){
 
 function renderNet(){
   const subjList = getNetSubjectList();
-  const rows = subjList.map(s=>`
+  const editingRecord = editingNetId ? state.netResults.find(r=>r.id===editingNetId) : null;
+  const rows = subjList.map(s=>{
+    const saved = editingRecord ? editingRecord.subjects[s.key] : null;
+    const qVal = saved ? saved.q : s.max;
+    const dVal = saved && saved.d ? saved.d : "";
+    const yVal = saved && saved.y ? saved.y : "";
+    return `
     <tr>
-      <td>${s.name} <span style="color:var(--muted);font-size:11.5px;">(maks ${s.max})</span></td>
-      <td><input type="number" min="0" max="${s.max}" step="1" id="d-${s.key}" placeholder="Doğru" style="width:90px;"></td>
-      <td><input type="number" min="0" max="${s.max}" step="1" id="y-${s.key}" placeholder="Yanlış" style="width:90px;"></td>
+      <td>${s.name}</td>
+      <td><input type="number" min="0" step="1" id="q-${s.key}" data-qkey="${s.key}" value="${qVal}" placeholder="Soru" style="width:80px;"></td>
+      <td><input type="number" min="0" step="1" id="d-${s.key}" data-dkey="${s.key}" value="${dVal}" placeholder="Doğru" style="width:80px;"></td>
+      <td><input type="number" min="0" step="1" id="y-${s.key}" data-ykey="${s.key}" value="${yVal}" placeholder="Yanlış" style="width:80px;"></td>
+      <td><input type="number" id="b-${s.key}" placeholder="0" readonly tabindex="-1" style="width:80px;background:var(--paper-2);color:var(--muted);"></td>
     </tr>
-  `).join("");
+  `;}).join("");
 
   const history = [...state.netResults].reverse();
-  const historyRows = history.length ? history.map(r=>`
+  const historyRows = history.length ? history.map(r=>{
+    const hasQ = !!r.totalQuestions;
+    const pct = hasQ ? (r.totalNet/r.totalQuestions*100) : null;
+    const isOpen = expandedNetIds.has(r.id);
+    const subjDetailRows = Object.values(r.subjects||{}).map(sd=>`
+      <tr>
+        <td>${escapeHtml(sd.name)}</td>
+        <td>${sd.q}</td>
+        <td>${sd.d}</td>
+        <td style="color:${sd.y>0?'var(--clay)':'inherit'};font-weight:${sd.y>0?'700':'400'};">${sd.y}</td>
+        <td>${sd.bos}</td>
+        <td>${sd.net.toFixed(2)}</td>
+      </tr>
+    `).join("");
+    const detailRow = isOpen ? `
+      <tr>
+        <td colspan="7" style="background:var(--paper-2);padding:12px 14px;">
+          <table class="yks-table" style="margin:0;">
+            <thead><tr><th>Ders</th><th>Soru</th><th>Doğru</th><th>Yanlış</th><th>Boş</th><th>Net</th></tr></thead>
+            <tbody>${subjDetailRows || `<tr><td colspan="6"><div class="yks-empty">Ders bazlı veri yok.</div></td></tr>`}</tbody>
+          </table>
+        </td>
+      </tr>
+    ` : "";
+    return `
     <tr>
-      <td class="yks-log-meta">${fmtDate(r.date)}</td>
+      <td class="yks-log-meta" style="cursor:pointer;" data-togglenet="${r.id}">${isOpen?'▾':'▸'} ${fmtDate(r.date)}</td>
       <td><span class="yks-pill ${r.type}">${r.type.toUpperCase()}</span></td>
       <td>${escapeHtml(r.name||'-')}</td>
+      <td>${hasQ? r.totalQuestions : '—'}</td>
       <td class="yks-net-total">${r.totalNet.toFixed(2)}</td>
-      <td><button class="yks-btn ghost small" data-delnet="${r.id}">Sil</button></td>
+      <td class="yks-net-total">${pct!==null? '%'+pct.toFixed(1) : '—'}</td>
+      <td style="white-space:nowrap;">
+        <button class="yks-btn ghost small" data-togglenet="${r.id}">${isOpen?'Gizle':'Detay'}</button>
+        <button class="yks-btn ghost small" data-editnet="${r.id}">Düzenle</button>
+        <button class="yks-btn ghost small" data-delnet="${r.id}">Sil</button>
+      </td>
     </tr>
-  `).join("") : `<tr><td colspan="5"><div class="yks-empty">Henüz kaydedilmiş deneme sonucu yok.</div></td></tr>`;
+    ${detailRow}
+  `;}).join("") : `<tr><td colspan="7"><div class="yks-empty">Henüz kaydedilmiş deneme sonucu yok.</div></td></tr>`;
 
   return `
     <h1 class="yks-h1">Net Hesaplama</h1>
-    <p class="yks-sub">Girdiğin doğru/yanlış sayılarından net otomatik hesaplanır ve tarihiyle kaydedilir (Net = Doğru − Yanlış/4).</p>
+    <p class="yks-sub">Her denemenin soru sayısı farklı olabilir — önce her dersin toplam soru sayısını gir (deneme kitapçığındaki gerçek sayıya göre değiştirebilirsin), sonra doğru/yanlış sayılarını gir. Boş otomatik hesaplanır, net otomatik hesaplanır ve tarihiyle kaydedilir (Net = Doğru − Yanlış/4).</p>
 
     <div class="yks-card">
-      <div class="yks-card-title">Yeni Deneme Sonucu Ekle</div>
+      <div class="yks-card-title">${editingRecord ? 'Deneme Sonucunu Düzenle' : 'Yeni Deneme Sonucu Ekle'}</div>
       <div class="yks-filter-bar">
         <div class="yks-chip ${netFormType==='tyt'?'active':''}" data-nettype="tyt">TYT</div>
         <div class="yks-chip ${netFormType==='ayt'?'active':''}" data-nettype="ayt">AYT (${TRACK_LABELS[state.profile.track]})</div>
@@ -1057,33 +1098,67 @@ function renderNet(){
       <div class="yks-grid2" style="margin-bottom:14px;">
         <div>
           <label class="yks-label">Deneme Adı</label>
-          <input type="text" id="net-name" placeholder="Örn: 3D Yayınları Deneme 4">
+          <input type="text" id="net-name" placeholder="Örn: 3D Yayınları Deneme 4" value="${editingRecord? escapeAttr(editingRecord.name||'') : ''}">
         </div>
         <div>
           <label class="yks-label">Tarih</label>
-          <input type="date" id="net-date" value="${todayStr()}">
+          <input type="date" id="net-date" value="${editingRecord? editingRecord.date : todayStr()}">
         </div>
       </div>
       <table class="yks-table">
-        <thead><tr><th>Ders</th><th>Doğru</th><th>Yanlış</th></tr></thead>
+        <thead><tr><th>Ders</th><th>Soru Sayısı</th><th>Doğru</th><th>Yanlış</th><th>Boş</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:14px;"><button class="yks-btn amber" id="btn-save-net">Kaydet</button></div>
+      <div id="net-preview" style="margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink-2);">
+        Toplam: 0 soru üzerinden 0.00 net (%0.0)
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;">
+        <button class="yks-btn amber" id="btn-save-net">${editingRecord ? 'Güncelle' : 'Kaydet'}</button>
+        ${editingRecord ? '<button class="yks-btn ghost" id="btn-cancel-net-edit">İptal</button>' : ''}
+      </div>
     </div>
 
     <div class="yks-card">
-      <div class="yks-card-title">Net Gelişim Grafiği</div>
+      <div class="yks-card-title">Net Gelişim Grafiği <span style="color:var(--muted);font-size:11.5px;font-weight:500;">(yüzdelik başarı oranı)</span></div>
       ${state.netResults.length? '<canvas id="net-chart" height="90"></canvas>' : '<div class="yks-empty">Grafik için en az bir deneme sonucu ekle.</div>'}
     </div>
 
     <div class="yks-card">
-      <div class="yks-card-title">Geçmiş Sonuçlar</div>
+      <div class="yks-card-title">Geçmiş Sonuçlar <span style="color:var(--muted);font-size:11.5px;font-weight:500;">(satırdaki tarihe veya "Detay"a tıklayınca ders bazlı doğru/yanlış görünür)</span></div>
       <table class="yks-table">
-        <thead><tr><th>Tarih</th><th>Tür</th><th>Deneme</th><th>Toplam Net</th><th></th></tr></thead>
+        <thead><tr><th>Tarih</th><th>Tür</th><th>Deneme</th><th>Soru</th><th>Net</th><th>Başarı %</th><th></th></tr></thead>
         <tbody>${historyRows}</tbody>
       </table>
     </div>
   `;
+}
+
+function computeNetPreview(subjList){
+  let totalQ = 0, totalD = 0, totalY = 0, totalNet = 0;
+  subjList.forEach(s=>{
+    const qEl = document.getElementById('q-'+s.key);
+    const dEl = document.getElementById('d-'+s.key);
+    const yEl = document.getElementById('y-'+s.key);
+    const bEl = document.getElementById('b-'+s.key);
+    const q = parseInt(qEl && qEl.value)||0;
+    const d = parseInt(dEl && dEl.value)||0;
+    const y = parseInt(yEl && yEl.value)||0;
+    const bos = Math.max(q - d - y, 0);
+    if(bEl) bEl.value = bos;
+    totalQ += q; totalD += d; totalY += y;
+    totalNet += (d - y/4);
+  });
+  const previewEl = document.getElementById('net-preview');
+  if(previewEl){
+    const pct = totalQ>0 ? (totalNet/totalQ*100) : 0;
+    previewEl.textContent = `Toplam: ${totalQ} soru üzerinden ${totalNet.toFixed(2)} net (%${pct.toFixed(1)})`;
+  }
+  return { totalQ, totalD, totalY, totalNet };
+}
+
+function netPct(r){
+  if(!r.totalQuestions) return null;
+  return Math.round((r.totalNet/r.totalQuestions*100)*10)/10;
 }
 
 function renderNetChart(){
@@ -1098,13 +1173,24 @@ function renderNetChart(){
     data:{
       labels: allDates.map(fmtDate),
       datasets:[
-        { label:'TYT Net', data: allDates.map(d=>{ const f=tyt.find(r=>r.date===d); return f? f.totalNet: null; }),
+        { label:'TYT Başarı %', data: allDates.map(d=>{ const f=tyt.find(r=>r.date===d); return f? netPct(f): null; }),
           borderColor:'#6B8F71', backgroundColor:'rgba(107,143,113,0.12)', spanGaps:true, tension:0.25 },
-        { label:'AYT Net', data: allDates.map(d=>{ const f=ayt.find(r=>r.date===d); return f? f.totalNet: null; }),
+        { label:'AYT Başarı %', data: allDates.map(d=>{ const f=ayt.find(r=>r.date===d); return f? netPct(f): null; }),
           borderColor:'#D98E3D', backgroundColor:'rgba(217,142,61,0.12)', spanGaps:true, tension:0.25 }
       ]
     },
-    options:{ responsive:true, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true } } }
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{ position:'bottom' },
+        tooltip:{ callbacks:{ label: (ctx)=>{
+          const r = ctx.dataset.label.startsWith('TYT') ? tyt.find(x=>fmtDate(x.date)===ctx.label) : ayt.find(x=>fmtDate(x.date)===ctx.label);
+          const extra = r && r.totalQuestions ? ` (${r.totalNet.toFixed(2)} net / ${r.totalQuestions} soru)` : '';
+          return `${ctx.dataset.label}: %${ctx.formattedValue}${extra}`;
+        } } }
+      },
+      scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>'%'+v } } }
+    }
   });
 }
 
@@ -1622,38 +1708,93 @@ function attachHandlers(){
     document.querySelectorAll('[data-nettype]').forEach(el=>{
       el.onclick = ()=>{ netFormType = el.dataset.nettype; render(); };
     });
+    const subjList = getNetSubjectList();
+    computeNetPreview(subjList);
+    subjList.forEach(s=>{
+      ['q-'+s.key, 'd-'+s.key, 'y-'+s.key].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) el.oninput = ()=>computeNetPreview(subjList);
+      });
+    });
     const saveBtn = document.getElementById('btn-save-net');
     if(saveBtn) saveBtn.onclick = async ()=>{
-      const subjList = getNetSubjectList();
       const subjResults = {};
       let totalNet = 0;
+      let totalQuestions = 0;
       let anyInput = false;
       subjList.forEach(s=>{
+        const qEl = document.getElementById('q-'+s.key);
         const dEl = document.getElementById('d-'+s.key);
         const yEl = document.getElementById('y-'+s.key);
+        const q = parseInt(qEl.value)||0;
         const d = parseInt(dEl.value)||0;
         const y = parseInt(yEl.value)||0;
         if(dEl.value || yEl.value) anyInput = true;
+        const bos = Math.max(q - d - y, 0);
         const net = d - y/4;
-        subjResults[s.key] = { name:s.name, d, y, net };
+        subjResults[s.key] = { name:s.name, q, d, y, bos, net };
         totalNet += net;
+        totalQuestions += q;
       });
       if(!anyInput){ toast("Lütfen en az bir derse doğru/yanlış gir."); return; }
-      state.netResults.push({
-        id: uid(),
-        date: document.getElementById('net-date').value || todayStr(),
-        name: document.getElementById('net-name').value || "",
-        type: netFormType,
-        subjects: subjResults,
-        totalNet: Math.round(totalNet*100)/100
-      });
-      await saveState();
-      toast("Deneme sonucu kaydedildi.");
+      const roundedNet = Math.round(totalNet*100)/100;
+      const date = document.getElementById('net-date').value || todayStr();
+      const name = document.getElementById('net-name').value || "";
+      if(editingNetId){
+        const idx = state.netResults.findIndex(r=>r.id===editingNetId);
+        if(idx>-1){
+          state.netResults[idx] = {
+            ...state.netResults[idx],
+            date, name, type: netFormType,
+            subjects: subjResults,
+            totalNet: roundedNet,
+            totalQuestions
+          };
+        }
+        editingNetId = null;
+        await saveState();
+        toast("Deneme sonucu güncellendi.");
+      } else {
+        state.netResults.push({
+          id: uid(),
+          date, name,
+          type: netFormType,
+          subjects: subjResults,
+          totalNet: roundedNet,
+          totalQuestions
+        });
+        await saveState();
+        const pctMsg = totalQuestions>0 ? ` ${totalQuestions} soru üzerinden ${roundedNet.toFixed(2)} net aldınız (%${(roundedNet/totalQuestions*100).toFixed(1)}).` : '';
+        toast("Deneme sonucu kaydedildi."+pctMsg);
+      }
       render();
     };
+    const cancelEditBtn = document.getElementById('btn-cancel-net-edit');
+    if(cancelEditBtn) cancelEditBtn.onclick = ()=>{ editingNetId = null; render(); };
+    document.querySelectorAll('[data-editnet]').forEach(el=>{
+      el.onclick = ()=>{
+        const rec = state.netResults.find(r=>r.id===el.dataset.editnet);
+        if(!rec) return;
+        editingNetId = rec.id;
+        netFormType = rec.type;
+        render();
+        const card = document.querySelector('.yks-card');
+        if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+      };
+    });
+    document.querySelectorAll('[data-togglenet]').forEach(el=>{
+      el.onclick = ()=>{
+        const id = el.dataset.togglenet;
+        if(expandedNetIds.has(id)) expandedNetIds.delete(id);
+        else expandedNetIds.add(id);
+        render();
+      };
+    });
     document.querySelectorAll('[data-delnet]').forEach(el=>{
       el.onclick = async ()=>{
         state.netResults = state.netResults.filter(r=>r.id!==el.dataset.delnet);
+        if(editingNetId===el.dataset.delnet) editingNetId = null;
+        expandedNetIds.delete(el.dataset.delnet);
         await saveState();
         render();
       };
