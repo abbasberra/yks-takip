@@ -6,7 +6,28 @@
 <title>YKS 2028 Takip</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+(function loadChartJs(){
+  var urls = [
+    "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.8/chart.umd.min.js",
+    "https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js",
+    "https://unpkg.com/chart.js@4.4.8/dist/chart.umd.min.js"
+  ];
+  function tryLoad(i){
+    if(i>=urls.length){ console.warn('Chart.js hiçbir kaynaktan yüklenemedi.'); return; }
+    var s = document.createElement('script');
+    s.src = urls[i];
+    s.onerror = function(){ tryLoad(i+1); };
+    s.onload = function(){
+      if(typeof activeTab !== 'undefined' && activeTab === 'net' && typeof renderNetChart === 'function'){
+        try{ render(); }catch(e){}
+      }
+    };
+    document.head.appendChild(s);
+  }
+  tryLoad(0);
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.13.2/firebase-app-compat.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.13.2/firebase-auth-compat.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.13.2/firebase-firestore-compat.min.js"></script>
@@ -1120,7 +1141,7 @@ function renderNet(){
 
     <div class="yks-card">
       <div class="yks-card-title">Net Gelişim Grafiği <span style="color:var(--muted);font-size:11.5px;font-weight:500;">(yüzdelik başarı oranı)</span></div>
-      ${state.netResults.length? '<canvas id="net-chart" height="90"></canvas>' : '<div class="yks-empty">Grafik için en az bir deneme sonucu ekle.</div>'}
+      ${state.netResults.length? '<div style="position:relative;height:320px;width:100%;"><canvas id="net-chart"></canvas></div>' : '<div class="yks-empty">Grafik için en az bir deneme sonucu ekle.</div>'}
     </div>
 
     <div class="yks-card">
@@ -1163,35 +1184,51 @@ function netPct(r){
 
 function renderNetChart(){
   const canvas = document.getElementById('net-chart');
-  if(!canvas || !window.Chart) return;
-  const tyt = state.netResults.filter(r=>r.type==='tyt').sort((a,b)=>a.date.localeCompare(b.date));
-  const ayt = state.netResults.filter(r=>r.type==='ayt').sort((a,b)=>a.date.localeCompare(b.date));
+  if(!canvas) return;
+  if(!window.Chart){
+    canvas.outerHTML = '<div class="yks-empty">Grafik kütüphanesi (Chart.js) yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin.</div>';
+    console.warn('Chart.js yüklenmedi - net grafiği çizilemiyor.');
+    return;
+  }
   if(netChart) netChart.destroy();
-  const allDates = [...new Set(state.netResults.map(r=>r.date))].sort();
-  netChart = new Chart(canvas.getContext('2d'), {
-    type:'line',
-    data:{
-      labels: allDates.map(fmtDate),
-      datasets:[
-        { label:'TYT Başarı %', data: allDates.map(d=>{ const f=tyt.find(r=>r.date===d); return f? netPct(f): null; }),
-          borderColor:'#6B8F71', backgroundColor:'rgba(107,143,113,0.12)', spanGaps:true, tension:0.25 },
-        { label:'AYT Başarı %', data: allDates.map(d=>{ const f=ayt.find(r=>r.date===d); return f? netPct(f): null; }),
-          borderColor:'#D98E3D', backgroundColor:'rgba(217,142,61,0.12)', spanGaps:true, tension:0.25 }
-      ]
-    },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{ position:'bottom' },
-        tooltip:{ callbacks:{ label: (ctx)=>{
-          const r = ctx.dataset.label.startsWith('TYT') ? tyt.find(x=>fmtDate(x.date)===ctx.label) : ayt.find(x=>fmtDate(x.date)===ctx.label);
-          const extra = r && r.totalQuestions ? ` (${r.totalNet.toFixed(2)} net / ${r.totalQuestions} soru)` : '';
-          return `${ctx.dataset.label}: %${ctx.formattedValue}${extra}`;
-        } } }
-      },
-      scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>'%'+v } } }
-    }
+  const ordered = [...state.netResults].sort((a,b)=>{
+    if(a.date !== b.date) return a.date.localeCompare(b.date);
+    return (a.id||"").localeCompare(b.id||"");
   });
+  const labels = ordered.map(r=>fmtDate(r.date));
+  const tytData = ordered.map(r=> r.type==='tyt' ? netPct(r) : null);
+  const aytData = ordered.map(r=> r.type==='ayt' ? netPct(r) : null);
+  try{
+    netChart = new Chart(canvas.getContext('2d'), {
+      type:'line',
+      data:{
+        labels: labels,
+        datasets:[
+          { label:'TYT Başarı %', data: tytData,
+            borderColor:'#6B8F71', backgroundColor:'rgba(107,143,113,0.12)', spanGaps:true, tension:0.25 },
+          { label:'AYT Başarı %', data: aytData,
+            borderColor:'#D98E3D', backgroundColor:'rgba(217,142,61,0.12)', spanGaps:true, tension:0.25 }
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{ position:'bottom' },
+          tooltip:{ callbacks:{ label: (ctx)=>{
+            const r = ordered[ctx.dataIndex];
+            if(!r || ctx.parsed.y===null) return null;
+            const extra = r.totalQuestions ? ` (${r.totalNet.toFixed(2)} net / ${r.totalQuestions} soru${r.name? ' — '+r.name : ''})` : '';
+            return `${ctx.dataset.label}: %${ctx.formattedValue}${extra}`;
+          } } }
+        },
+        scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>'%'+v } } }
+      }
+    });
+  } catch(e){
+    console.error('Net grafiği çizilirken hata oluştu:', e);
+    canvas.closest('div').outerHTML = '<div class="yks-empty">Grafik çizilirken bir hata oluştu. Tarayıcı konsolunu (F12) kontrol edin.</div>';
+  }
 }
 
 // ---------- EKSIK KONULAR ----------
