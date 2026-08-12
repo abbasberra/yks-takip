@@ -333,12 +333,12 @@
     max-width:100%; box-shadow:0 20px 50px rgba(0,0,0,0.25);
   }
   .yks-agenda-block{ border-top:1px dashed var(--line); margin-top:14px; padding-top:4px; }
-  .yks-agenda-days{ display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-top:6px; }
+  .yks-agenda-days{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:6px; }
   .yks-agenda-day{
     background:var(--paper-2);
     border-radius:11px;
-    padding:12px 11px;
-    min-height:240px;
+    padding:16px 15px;
+    min-height:220px;
     display:flex;
     flex-direction:column;
   }
@@ -382,9 +382,10 @@
   }
   .yks-agenda-item span{
     flex:1;
-    font-size:13.5px;
-    line-height:1.45;
-    word-break:break-word;
+    font-size:14.5px;
+    line-height:1.55;
+    white-space:pre-wrap;
+    overflow-wrap:break-word;
     cursor:pointer;
     padding-top:1px;
   }
@@ -403,10 +404,18 @@
   }
   .yks-agenda-item .yks-agenda-del:hover{ opacity:1; }
   .yks-agenda-empty{ font-size:12px; color:var(--muted); font-style:italic; padding:4px 0 2px 0; }
-  .yks-agenda-add{ display:flex; gap:6px; margin-top:auto; }
-  .yks-agenda-add input{ flex:1; font-size:13px; padding:9px 10px; }
-  .yks-agenda-add button{ flex:0 0 auto; padding:9px 13px; font-size:15px; }
-  @media (max-width:900px){ .yks-agenda-days{ grid-template-columns:repeat(2,1fr); } }
+  .yks-agenda-add{ display:flex; flex-direction:column; gap:8px; margin-top:auto; }
+  .yks-agenda-add textarea{
+    width:100%;
+    font-size:14px;
+    line-height:1.5;
+    padding:10px 11px;
+    min-height:90px;
+    resize:vertical;
+  }
+  .yks-agenda-add .yks-agenda-hint{ font-size:11px; color:var(--muted); }
+  .yks-agenda-add button{ align-self:flex-end; padding:8px 16px; font-size:13.5px; }
+  @media (max-width:700px){ .yks-agenda-days{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -1026,8 +1035,9 @@ function renderWeekAgenda(w, start){
       <label class="yks-label">${label} <span style="font-weight:400;text-transform:none;color:var(--muted);">${dateLabel}</span></label>
       <div class="yks-agenda-list">${itemsHtml}</div>
       <div class="yks-agenda-add">
-        <input type="text" placeholder="Madde ekle..." data-agendainput="${w}:${i}">
-        <button class="yks-btn sage small" data-agendaadd="${w}:${i}">+</button>
+        <textarea placeholder="Bugün için not yaz... (uzun yazabilirsin)" data-agendainput="${w}:${i}"></textarea>
+        <div class="yks-agenda-hint">Eklemek için Ctrl+Enter (Mac'te ⌘+Enter)</div>
+        <button class="yks-btn sage small" data-agendaadd="${w}:${i}">Ekle</button>
       </div>
     </div>`;
   }
@@ -1701,13 +1711,14 @@ function attachHandlers(){
         if(!text) return;
         const agenda = getWeekAgenda(w);
         agenda.days[i].push({ id: uid(), text, done:false });
+        if(input) input.value = '';
         await saveState();
         render();
       };
       el.onclick = addItem;
       const inputEl = document.querySelector(`[data-agendainput="${key}"]`);
       if(inputEl){
-        inputEl.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); addItem(); } };
+        inputEl.onkeydown = (e)=>{ if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); addItem(); } };
       }
     });
     document.querySelectorAll('[data-agendacheck]').forEach(el=>{
