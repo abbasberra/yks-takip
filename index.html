@@ -1035,7 +1035,7 @@ function renderWeekAgenda(w, start){
       <label class="yks-label">${label} <span style="font-weight:400;text-transform:none;color:var(--muted);">${dateLabel}</span></label>
       <div class="yks-agenda-list">${itemsHtml}</div>
       <div class="yks-agenda-add">
-        <textarea placeholder="Bugün için not yaz... (uzun yazabilirsin)" data-agendainput="${w}:${i}"></textarea>
+        <textarea placeholder="Bugün için not yaz..." data-agendainput="${w}:${i}"></textarea>
         <div class="yks-agenda-hint">Eklemek için Ctrl+Enter (Mac'te ⌘+Enter)</div>
         <button class="yks-btn sage small" data-agendaadd="${w}:${i}">Ekle</button>
       </div>
@@ -1290,9 +1290,10 @@ function renderSorular(){
   const allSubjNames = Object.values(getAllActiveSubjects()).map(s=>s.name);
   const options = allSubjNames.map(n=>`<option value="${escapeAttr(n)}">${n}</option>`).join("");
 
-  const items = [...state.questionLog].reverse();
+    const items = [...state.questionLog].reverse();
 
-  const listHtml = items.length? items.map(q=>`
+  function renderQItem(q){
+    return `
     <div class="yks-log-item qitem">
       <div class="yks-log-top">
         <strong style="font-size:13px;">${escapeHtml(q.subject)}${q.topic? ' · '+escapeHtml(q.topic):''}</strong>
@@ -1302,9 +1303,32 @@ function renderSorular(){
       ${q.text? `<div style="font-size:13.5px;white-space:pre-wrap;">${escapeHtml(q.text)}</div>`:''}
       ${q.hasPhoto? `<div class="yks-photo-slot" data-photoid="${q.id}"><span class="yks-log-meta">Fotoğraf yükleniyor…</span></div>`:''}
       <div style="margin-top:6px;"><button class="yks-btn ghost small" data-delq="${q.id}">Sil</button></div>
-    </div>
-  `).join("") : `<div class="yks-empty">Henüz kayıt yok. Karşına çıkan önemli bir soruyu aşağıdan ekleyebilirsin.</div>`;
+    </div>`;
+  }
 
+  let listHtml;
+  if(!items.length){
+    listHtml = `<div class="yks-empty">Henüz kayıt yok. Karşına çıkan önemli bir soruyu aşağıdan ekleyebilirsin.</div>`;
+  } else {
+    const groups = {};
+    items.forEach(q=>{
+      const key = q.subject && q.subject.trim() ? q.subject : "Diğer";
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(q);
+    });
+    // Sıralama: aktif ders listesindeki doğal sıra, sonra kalanlar
+    const groupOrder = allSubjNames.filter(n=>groups[n])
+      .concat(Object.keys(groups).filter(n=>!allSubjNames.includes(n)));
+
+    listHtml = groupOrder.map(subjName=>`
+      <div class="yks-subj-group" style="margin-bottom:18px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">
+          ${escapeHtml(subjName)} <span style="opacity:.7;">(${groups[subjName].length})</span>
+        </div>
+        ${groups[subjName].map(renderQItem).join("")}
+      </div>
+    `).join("");
+  }
   return `
     <h1 class="yks-h1">Soru Kayıtları</h1>
     <p class="yks-sub">Karşına çıkan önemli soruları — yanlış yaptıkların da, beğendiklerin de — kalıcı olarak burada sakla; istersen fotoğrafını da ekle.</p>
