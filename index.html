@@ -1029,6 +1029,7 @@ function renderWeekAgenda(w, start){
       <div class="yks-agenda-item ${it.done?'done':''}">
         <input type="checkbox" ${it.done?'checked':''} data-agendacheck="${w}:${i}:${it.id}">
         <span data-agendatext="${w}:${i}:${it.id}">${escapeHtml(it.text)}</span>
+        <button class="yks-agenda-edit" data-agendaedit="${w}:${i}:${it.id}" title="Düzenle">✎</button>
         <button class="yks-agenda-del" data-agendadel="${w}:${i}:${it.id}" title="Sil">✕</button>
       </div>`).join("") : `<div class="yks-agenda-empty">Henüz madde yok.</div>`;
     dayCells += `<div class="yks-agenda-day">
@@ -1302,7 +1303,10 @@ function renderSorular(){
       ${q.source? `<div style="font-size:12px;color:var(--muted);margin-bottom:3px;">Kaynak: ${escapeHtml(q.source)}</div>`:''}
       ${q.text? `<div style="font-size:13.5px;white-space:pre-wrap;">${escapeHtml(q.text)}</div>`:''}
       ${q.hasPhoto? `<div class="yks-photo-slot" data-photoid="${q.id}"><span class="yks-log-meta">Fotoğraf yükleniyor…</span></div>`:''}
-      <div style="margin-top:6px;"><button class="yks-btn ghost small" data-delq="${q.id}">Sil</button></div>
+      <div style="margin-top:6px;display:flex;gap:8px;">
+        <button class="yks-btn ghost small" data-editq="${q.id}">Düzenle</button>
+        <button class="yks-btn ghost small" data-delq="${q.id}">Sil</button>
+      </div>
     </div>`;
   }
 
@@ -1765,6 +1769,21 @@ function attachHandlers(){
         render();
       };
     });
+    document.querySelectorAll('[data-agendaedit]').forEach(el=>{
+      el.onclick = async ()=>{
+        const [w,i,id] = el.dataset.agendaedit.split(':');
+        const agenda = getWeekAgenda(w);
+        const item = agenda.days[i].find(it=>it.id===id);
+        if(!item) return;
+        const newText = window.prompt('Notu düzenle:', item.text);
+        if(newText===null) return;
+        const trimmed = newText.trim();
+        if(!trimmed) return;
+        item.text = trimmed;
+        await saveState();
+        render();
+      };
+    });
     document.querySelectorAll('[data-agendadel]').forEach(el=>{
       el.onclick = async ()=>{
         const [w,i,id] = el.dataset.agendadel.split(':');
@@ -1897,6 +1916,27 @@ function attachHandlers(){
   }
 
   if(activeTab==='sorular'){
+    document.querySelectorAll('[data-editq]').forEach(el=>{
+      el.onclick = async ()=>{
+        const qid = el.dataset.editq;
+        const q = state.questionLog.find(x=>x.id===qid);
+        if(!q) return;
+        const newSubject = window.prompt('Ders:', q.subject || '');
+        if(newSubject===null) return;
+        const newTopic = window.prompt('Konu (opsiyonel):', q.topic || '');
+        if(newTopic===null) return;
+        const newSource = window.prompt('Kaynak (opsiyonel):', q.source || '');
+        if(newSource===null) return;
+        const newText = window.prompt('Not:', q.text || '');
+        if(newText===null) return;
+        q.subject = newSubject.trim() || q.subject;
+        q.topic = newTopic.trim();
+        q.source = newSource.trim();
+        q.text = newText.trim();
+        await saveState();
+        render();
+      };
+    });
     document.querySelectorAll('[data-delq]').forEach(el=>{
       el.onclick = async ()=>{
         const qid = el.dataset.delq;
